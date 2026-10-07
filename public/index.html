@@ -135,6 +135,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <label>Paid ($)<input name="paid" type="number" step="0.01" min="0"></label>
       <label>Current value ($)<input name="value" type="number" step="0.01" min="0"></label>
       <label>Date got it<input name="acquired" type="date"></label>
+      <label>Grade estimate<input name="grade" placeholder="PSA 8-9"><span class="help">A guess from the photo, not a real grade</span></label>
     </div>
     <label>Notes<textarea name="notes" rows="2"></textarea></label>
     <div class="actions">
@@ -237,7 +238,7 @@ async function readCard(blob){
     if(d.error==="no_key"){msg.textContent="Card reading isn't set up yet (API key missing in Netlify).";return}
     if(!r.ok||d.error){msg.textContent="Couldn't read the card. Fill it in by hand.";return}
     const f=$("form");let n=0;
-    for(const k of ["player","team","sport","year","set","cardNo","rookie","numbered","special","notes"]){
+    for(const k of ["player","team","sport","year","set","cardNo","rookie","numbered","special","grade","notes"]){
       const el=f.elements[k];if(!el||d[k]==null||d[k]==="")continue;
       if(el.tagName==="SELECT"){if(editing&&editing[k])continue;if([...el.options].some(o=>o.value===d[k])){el.value=d[k];n++}}
       else if(!el.value){el.value=d[k];n++}
