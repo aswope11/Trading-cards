@@ -119,7 +119,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       </div>
     </div>
     <div class="grid">
-      <label>Player(s)<input name="player" required placeholder="Junior Caminero / Elly De La Cruz"></label>
+      <label>Player(s)<input name="player" placeholder="Junior Caminero / Elly De La Cruz"></label>
       <label>Sport<select name="sport"><option>Baseball</option><option>Football</option><option>Basketball</option><option>Other</option></select></label>
       <label>Team<input name="team"></label>
       <label>Year<input name="year" placeholder="2025"></label>
@@ -191,7 +191,7 @@ function render(){
     const p=num(c.paid),v=num(c.value),d=p!=null&&v!=null?v-p:null;
     return `<tr class="row" data-id="${c.id}">
     <td>${c.photo?`<img class="thumb" loading="lazy" src="/api/photo?id=${c.photo}" data-big="${c.photo}" alt="">`:'<div class="nothumb"></div>'}</td>
-    <td class="player">${esc(c.player)}${c.team?`<div class="muted" style="font-weight:400;font-size:.85rem">${esc(c.team)}</div>`:""}</td>
+    <td class="player">${esc(c.player)||'<span class="muted">Not filled in yet</span>'}${c.team?`<div class="muted" style="font-weight:400;font-size:.85rem">${esc(c.team)}</div>`:""}</td>
     <td>${esc(c.sport)}</td><td>${esc(c.year)}</td>
     <td>${esc(c.set)}${c.cardNo?` <span class="muted">#${esc(c.cardNo)}</span>`:""}</td>
     <td>${isRc(c)?'<span class="tag rc">RC</span>':'<span class="muted">No</span>'}</td>
