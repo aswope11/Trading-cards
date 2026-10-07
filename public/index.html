@@ -62,6 +62,9 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
 <div class="wrap">
   <header>
     <div><h1>Card Collection</h1><div class="status" id="status">Loading…</div></div>
+    <div class="bar" id="people" aria-label="Whose cards">
+      <button class="chip" data-p="Dad">Dad</button><button class="chip" data-p="Shep">Shep</button><button class="chip" data-p="Bubba">Bubba</button><button class="chip" data-p="McClainey">McClainey</button><button class="chip" data-p="">Everyone</button>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn ghost" id="csvBtn">Download CSV</button>
       <button class="btn" id="addBtn">+ Add card</button>
@@ -119,6 +122,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       </div>
     </div>
     <div class="grid">
+      <label>Whose card<select name="owner"><option>Dad</option><option>Shep</option><option>Bubba</option><option>McClainey</option></select></label>
       <label>Player(s)<input name="player" placeholder="Junior Caminero / Elly De La Cruz"></label>
       <label>Sport<select name="sport"><option>Baseball</option><option>Football</option><option>Basketball</option><option>Other</option></select></label>
       <label>Team<input name="team"></label>
@@ -145,6 +149,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
 
 <script>
 const $=id=>document.getElementById(id);
+let person=(()=>{try{return localStorage.getItem("cardPerson")??"Dad"}catch(e){return "Dad"}})();
 let cards=[],filter="all",sortKey="player",sortDir=1,q="",editing=null,pendingPhoto=null,removePhoto=false;
 const esc=s=>String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 const num=v=>v===""||v==null||isNaN(+v)?null:+v;
@@ -169,6 +174,11 @@ async function save(){
 }
 
 function render(){
+  document.querySelectorAll("#people .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===person));
+  const all=cards; const cards_=person?all.filter(c=>c.owner===person):all;
+  return renderFor(cards_);
+}
+function renderFor(cards){
   const both=cards.filter(c=>num(c.paid)!=null&&num(c.value)!=null);
   const paid=cards.reduce((s,c)=>s+(num(c.paid)||0),0), val=cards.reduce((s,c)=>s+(num(c.value)||0),0);
   const gain=both.reduce((s,c)=>s+num(c.value)-num(c.paid),0);
@@ -209,6 +219,7 @@ function shrink(file){return new Promise((res,rej)=>{const img=new Image();img.o
 function openEditor(c){
   editing=c;pendingPhoto=null;removePhoto=false;const f=$("form");f.reset();
   $("readMsg").textContent="Pick a photo and the card fills itself in.";$("dlgTitle").textContent=c?"Edit card":"Add card";$("delBtn").hidden=!c;
+  if(!c&&person)f.elements.owner.value=person;
   if(c)for(const el of f.elements)if(el.name&&c[el.name]!=null)el.value=c[el.name];
   $("pPreview").hidden=!(c&&c.photo);$("pRemove").hidden=!(c&&c.photo);
   if(c&&c.photo)$("pPreview").src="/api/photo?id="+c.photo;
@@ -255,11 +266,12 @@ $("delBtn").onclick=async()=>{
   const before=cards.slice();cards=cards.filter(x=>x.id!==editing.id);
   if(await save()){if(editing.photo)fetch("/api/photo?id="+editing.photo,{method:"DELETE"});$("dlg").close();render()}else{cards=before;render()}
 };
+document.querySelectorAll("#people .chip").forEach(b=>b.onclick=()=>{person=b.dataset.p;try{localStorage.setItem("cardPerson",person)}catch(e){}render()});
 $("addBtn").onclick=()=>openEditor(null);
 $("rows").onclick=e=>{const big=e.target.dataset.big;if(big){e.stopPropagation();$("bigImg").src="/api/photo?id="+big;$("big").style.display="grid";return}
   const tr=e.target.closest("tr.row");if(tr)openEditor(cards.find(c=>c.id===tr.dataset.id))};
 $("big").onclick=()=>$("big").style.display="none";
-document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===b));render()});
+document.querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll(".chip[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b));render()});
 document.querySelectorAll("th button").forEach(b=>b.onclick=()=>{const k=b.dataset.s;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=1}render()});
 $("search").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};
 $("csvBtn").onclick=()=>{const cols=["player","team","sport","year","set","cardNo","rookie","numbered","special","paid","value","acquired","notes"];
