@@ -7,17 +7,18 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
 <style>
-:root{--bg:#f3f4f1;--panel:#fff;--ink:#1b2230;--muted:#5d6675;--line:#d9dcd6;--navy:#1f3a5f;--foil:#b8892b;--rc:#b3362c;--good:#1d7a46;--bad:#b3362c;
+:root{--bg:#eaf2fb;--panel:#fff;--ink:#14213D;--muted:#55627a;--line:#c9d9ec;--navy:#14213D;--red:#CE1126;--powder:#6CACE4;--foil:#b8892b;--rc:#CE1126;--good:#1d7a46;--bad:#CE1126;
 --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;--body:"Barlow",system-ui,sans-serif;color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#12161d;--panel:#1a2029;--ink:#e7e9ee;--muted:#9aa3b2;--line:#2c3440;--navy:#8fb4e6;--foil:#e0b65a;--rc:#f07a6e;--good:#5fd08f;--bad:#f07a6e;color-scheme:dark}}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1324;--panel:#14213D;--ink:#eef3fa;--muted:#a9bad3;--line:#26375c;--navy:#6CACE4;--red:#ef4056;--powder:#6CACE4;--foil:#e0b65a;--rc:#ef4056;--good:#5fd08f;--bad:#ef4056;color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px}
 .wrap{max-width:1250px;margin:0 auto;padding:20px 16px 60px;display:grid;gap:14px}
-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;border:2px solid var(--navy);border-radius:6px;background:var(--panel);padding:12px 16px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;border-radius:6px;background:#14213D;border-bottom:5px solid #CE1126;padding:12px 16px}
+header h1{color:#fff}header h1 span{color:#6CACE4}header .status{color:#b9d6f2}header .btn.ghost{color:#fff;border-color:#6CACE4}header .chip{background:transparent;color:#fff;border-color:#6CACE4}header .chip[aria-pressed=true]{background:#6CACE4;border-color:#6CACE4;color:#14213D}
 h1{font-family:var(--display);font-size:2.1rem;margin:0;color:var(--navy);text-transform:uppercase;letter-spacing:.02em}
 .status{color:var(--muted);font-size:.9rem}
-.btn{border:1px solid var(--navy);background:var(--navy);color:var(--panel);padding:10px 16px;border-radius:6px;font:inherit;font-weight:600;cursor:pointer}
-.btn.ghost{background:transparent;color:var(--navy)}
+.btn{border:1px solid var(--red);background:var(--red);color:#fff;padding:10px 16px;border-radius:6px;font:inherit;font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--navy);border-color:var(--navy)}
 .btn.danger{background:var(--bad);border-color:var(--bad)}
 .tally{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
@@ -39,7 +40,7 @@ tr.row{cursor:pointer} tr.row:hover td{background:color-mix(in srgb,var(--navy) 
 .thumb{width:44px;height:60px;object-fit:cover;border-radius:3px;border:1px solid var(--line);display:block}
 .nothumb{width:44px;height:60px;border:1px dashed var(--line);border-radius:3px}
 .tag{display:inline-block;font-size:.78rem;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap}
-.rc{background:var(--rc);color:#fff}.foil{border:1px solid var(--foil);color:var(--foil)}.spec{background:var(--navy);color:var(--panel)}
+.rc{background:var(--rc);color:#fff}.foil{border:1px solid var(--foil);color:var(--foil)}.spec{background:var(--navy);color:var(--panel)}.grd{background:var(--powder);color:#14213D}
 .up{color:var(--good)}.down{color:var(--bad)}.muted{color:var(--muted)}
 .empty{padding:30px 16px;text-align:center;color:var(--muted)}
 /* editor */
@@ -52,16 +53,16 @@ label{display:grid;gap:4px;align-content:start;font-size:.85rem;font-weight:600;
 label input,label select,label textarea{font:inherit;font-weight:400;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;width:100%;min-width:0}
 .help{font-weight:400;font-size:.78rem}
 .photoArea{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-.photoArea img{width:120px;height:168px;object-fit:cover;border-radius:4px;border:1px solid var(--line)}
+.photoArea .slot{display:grid;gap:6px;justify-items:start}.photoArea img{width:110px;height:154px;object-fit:cover;border-radius:4px;border:1px solid var(--line)}
 .actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between}
 .big{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;place-items:center;z-index:9;cursor:zoom-out}
-.big img{max-width:92vw;max-height:92vh;border-radius:6px}
+.big img{max-width:92vw;max-height:88vh;border-radius:6px}@media(min-width:800px){.big img{max-width:45vw}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div><h1>Card Collection</h1><div class="status" id="status">Loading…</div></div>
+    <div><h1>Card <span>Collection</span></h1><div class="status" id="status">Loading…</div></div>
     <div class="bar" id="people" aria-label="Whose cards">
       <button class="chip" data-p="Dad">Dad</button><button class="chip" data-p="Shep">Shep</button><button class="chip" data-p="Bubba">Bubba</button><button class="chip" data-p="McClainey">McClainey</button><button class="chip" data-p="">Everyone</button>
     </div>
@@ -107,20 +108,17 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <tbody id="rows"><tr><td colspan="10" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
-  <div class="status">Click any row to edit or delete it. Click a photo to see it big.</div>
+  <div class="status">Click any row to edit or delete it. Click a photo to see the front and back big.</div>
 </div>
 
 <dialog id="dlg">
   <form class="dlg" method="dialog" id="form">
     <h2 id="dlgTitle">Add card</h2>
     <div class="photoArea">
-      <img id="pPreview" alt="" hidden>
-      <div style="display:grid;gap:6px">
-        <label>Card photo<input type="file" id="pFile" accept="image/*"></label>
-        <div id="readMsg" class="status"></div>
-        <button type="button" class="btn ghost" id="pRemove" hidden>Remove photo</button>
-      </div>
+      <div class="slot"><label>Front photo<input type="file" id="pFile_front" accept="image/*"></label><img id="pPreview_front" alt="" hidden><button type="button" class="btn ghost" id="pRemove_front" hidden>Remove front</button></div>
+      <div class="slot"><label>Back photo<input type="file" id="pFile_back" accept="image/*"></label><img id="pPreview_back" alt="" hidden><button type="button" class="btn ghost" id="pRemove_back" hidden>Remove back</button></div>
     </div>
+    <div id="readMsg" class="status"></div>
     <div class="grid">
       <label>Whose card<select name="owner"><option>Dad</option><option>Shep</option><option>Bubba</option><option>McClainey</option></select></label>
       <label>Player(s)<input name="player" placeholder="Junior Caminero / Elly De La Cruz"></label>
@@ -131,13 +129,17 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <label>Card #<input name="cardNo"></label>
       <label>Rookie<select name="rookie"><option>No</option><option>Yes</option></select><span class="help">Yes only if the card has the RC logo</span></label>
       <label>Numbered<input name="numbered" placeholder="23/99 — blank if not"></label>
-      <label>Auto / Patch / Graded<input name="special" placeholder="Auto, PSA 10 — blank if none"></label>
+      <label>Auto<select name="auto"><option>No</option><option>Yes</option></select></label>
+      <label>Patch<select name="patch"><option>No</option><option>Yes</option></select></label>
+      <label>Graded<select name="graded" id="gradedSel"><option>No</option><option>Yes</option></select><span class="help">Yes only if it's in a real grading slab</span></label>
+      <label class="gradedOnly" hidden>Grading company<select name="gradeCo"><option>PSA</option><option>BGS (Beckett)</option><option>SGC</option><option>CGC</option><option>TAG</option><option>HGA</option><option>CSG</option><option>ISA</option><option>GMA</option><option>KSA</option><option>MNT</option><option>AGS</option><option>Other</option></select></label>
+      <label class="gradedOnly" hidden>Grade<input name="gradeNum" inputmode="decimal" placeholder="10"><span class="help">The number on the slab label</span></label>
       <label>Paid ($)<input name="paid" type="number" step="0.01" min="0"></label>
       <label>Current value ($)<input name="value" type="number" step="0.01" min="0"><button type="button" class="btn ghost" id="priceBtn" style="padding:6px 10px;font-size:.85rem">Look up price</button><span class="help" id="priceMsg">Ungraded sold price from SportsCardsPro</span></label>
       <label>Date got it<input name="acquired" type="date"></label>
-      <label>Grade estimate<input name="grade" placeholder="PSA 8-9"><span class="help">A guess from the photo, not a real grade</span></label>
     </div>
     <label>Notes<textarea name="notes" rows="2"></textarea></label>
+    <label>Guesstimate — the app's opinion<input name="guess" placeholder="PSA 8-9"><span class="help">An assumption from the photo only (centering, corners, edges, surface). Not a real grade.</span></label>
     <div class="actions">
       <button type="button" class="btn danger" id="delBtn" hidden>Delete card</button>
       <span style="flex:1"></span>
@@ -146,12 +148,15 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
     </div>
   </form>
 </dialog>
-<div class="big" id="big"><img id="bigImg" alt=""></div>
+<div class="big" id="big"><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center"><img id="bigImg" alt=""><img id="bigImg2" alt="" hidden></div></div>
 
 <script>
 const $=id=>document.getElementById(id);
 let person=(()=>{try{return localStorage.getItem("cardPerson")??"Dad"}catch(e){return "Dad"}})();
-let cards=[],filter="all",sortKey="player",sortDir=1,q="",editing=null,pendingPhoto=null,removePhoto=false;
+let cards=[],filter="all",sortKey="player",sortDir=1,q="",editing=null,pending={front:null,back:null},removed={front:false,back:false};
+const SIDE={front:"photo",back:"photoBack"};
+const isAuto=c=>c.auto==="Yes",isPatch=c=>c.patch==="Yes",isGraded=c=>c.graded==="Yes";
+const specTags=c=>[isAuto(c)?"Auto":"",isPatch(c)?"Patch":"",isGraded(c)?`${(c.gradeCo||"").replace(" (Beckett)","")} ${c.gradeNum||""}`.trim():""].filter(Boolean);
 const esc=s=>String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 const num=v=>v===""||v==null||isNaN(+v)?null:+v;
 const $$=v=>v==null?"—":"$"+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -189,11 +194,12 @@ function renderFor(cards){
   let list=cards.filter(c=>{
     if(filter==="rc"&&!isRc(c))return false;
     if(filter==="num"&&!c.numbered)return false;
-    if(filter==="spec"&&!c.special)return false;
+    if(filter==="spec"&&!specTags(c).length)return false;
     if(["Football","Basketball","Baseball"].includes(filter)&&c.sport!==filter)return false;
     if(q&&!`${c.player} ${c.set} ${c.team} ${c.notes} ${c.year}`.toLowerCase().includes(q))return false;
     return true});
   list.sort((a,b)=>{let x=a[sortKey],y=b[sortKey];
+    if(sortKey==="special"){x=specTags(a).join(" ");y=specTags(b).join(" ")}
     if(sortKey==="paid"||sortKey==="value"){x=num(x)??-1;y=num(y)??-1;return (x-y)*sortDir}
     return String(x??"").localeCompare(String(y??""))*sortDir});
   if(!cards.length){$("rows").innerHTML='<tr><td colspan="10" class="empty">No cards yet. Click <b>+ Add card</b>.</td></tr>';return}
@@ -201,13 +207,13 @@ function renderFor(cards){
   $("rows").innerHTML=list.map(c=>{
     const p=num(c.paid),v=num(c.value),d=p!=null&&v!=null?v-p:null;
     return `<tr class="row" data-id="${c.id}">
-    <td>${c.photo?`<img class="thumb" loading="lazy" src="/api/photo?id=${c.photo}" data-big="${c.photo}" alt="">`:'<div class="nothumb"></div>'}</td>
+    <td>${c.photo?`<img class="thumb" loading="lazy" src="/api/photo?id=${c.photo}" data-big="${c.id}" alt="">`:'<div class="nothumb"></div>'}</td>
     <td class="player">${esc(c.player)||'<span class="muted">Not filled in yet</span>'}${c.team?`<div class="muted" style="font-weight:400;font-size:.85rem">${esc(c.team)}</div>`:""}</td>
     <td>${esc(c.sport)}</td><td>${esc(c.year)}</td>
     <td>${esc(c.set)}${c.cardNo?` <span class="muted">#${esc(c.cardNo)}</span>`:""}</td>
     <td>${isRc(c)?'<span class="tag rc">RC</span>':'<span class="muted">No</span>'}</td>
     <td>${c.numbered?`<span class="tag foil">${esc(c.numbered)}</span>`:'<span class="muted">—</span>'}</td>
-    <td>${c.special?`<span class="tag spec">${esc(c.special)}</span>`:'<span class="muted">—</span>'}</td>
+    <td>${specTags(c).length?specTags(c).map(t=>`<span class="tag ${t==="Auto"||t==="Patch"?"spec":"grd"}">${esc(t)}</span>`).join(" "):'<span class="muted">—</span>'}</td>
     <td class="money">${$$(p)}</td>
     <td class="money">${$$(v)}${d!=null?`<div class="${d>=0?"up":"down"}" style="font-size:.8rem">${d>=0?"+":"−"}${$$(Math.abs(d))}</div>`:""}</td></tr>`}).join("");
 }
@@ -218,44 +224,54 @@ function shrink(file){return new Promise((res,rej)=>{const img=new Image();img.o
   cv.toBlob(b=>b?res(b):rej(),"image/jpeg",.85);URL.revokeObjectURL(img.src)};img.onerror=rej;img.src=URL.createObjectURL(file)})}
 
 function openEditor(c){
-  editing=c;pendingPhoto=null;removePhoto=false;const f=$("form");f.reset();
+  editing=c;pending={front:null,back:null};removed={front:false,back:false};const f=$("form");f.reset();
   $("readMsg").textContent="Pick a photo and the card fills itself in.";$("priceMsg").textContent="Ungraded sold price from SportsCardsPro";$("dlgTitle").textContent=c?"Edit card":"Add card";$("delBtn").hidden=!c;
   if(!c&&person)f.elements.owner.value=person;
   if(c)for(const el of f.elements)if(el.name&&c[el.name]!=null)el.value=c[el.name];
-  $("pPreview").hidden=!(c&&c.photo);$("pRemove").hidden=!(c&&c.photo);
-  if(c&&c.photo)$("pPreview").src="/api/photo?id="+c.photo;
+  for(const side of ["front","back"]){const id=c&&c[SIDE[side]];$("pPreview_"+side).hidden=!id;$("pRemove_"+side).hidden=!id;$("pFile_"+side).value="";if(id)$("pPreview_"+side).src="/api/photo?id="+id}
+  showGraded();
   $("dlg").showModal();
 }
-$("pFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;pendingPhoto=await shrink(f);removePhoto=false;
-  $("pPreview").src=URL.createObjectURL(pendingPhoto);$("pPreview").hidden=false;$("pRemove").hidden=false;readCard(pendingPhoto)};
+// grading company + number only show for cards in a real slab
+function showGraded(){const on=$("gradedSel").value==="Yes";document.querySelectorAll(".gradedOnly").forEach(el=>el.hidden=!on)}
+$("gradedSel").onchange=showGraded;
+for(const side of ["front","back"]){
+  $("pFile_"+side).onchange=async e=>{const f=e.target.files[0];if(!f)return;pending[side]=await shrink(f);removed[side]=false;
+    $("pPreview_"+side).src=URL.createObjectURL(pending[side]);$("pPreview_"+side).hidden=false;$("pRemove_"+side).hidden=false;readCard()};
+  $("pRemove_"+side).onclick=()=>{pending[side]=null;removed[side]=true;$("pPreview_"+side).hidden=true;$("pRemove_"+side).hidden=true;$("pFile_"+side).value=""};
+}
 // photo -> Claude reads the card -> fills every box you have not typed in yet
-async function readCard(blob){
+const toB64=blob=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(",")[1]);fr.readAsDataURL(blob)});
+async function readCard(){
   const msg=$("readMsg");msg.textContent="Reading the card…";
   try{
-    const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(",")[1]);fr.readAsDataURL(blob)});
-    const r=await fetch("/api/read-card",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({image:b64})});
+    const images=[];for(const side of ["front","back"])if(pending[side])images.push(await toB64(pending[side]));
+    if(!images.length)return;
+    const r=await fetch("/api/read-card",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({images})});
     const d=await r.json();
     if(d.error==="no_key"){msg.textContent="Card reading isn't set up yet (API key missing in Netlify).";return}
     if(!r.ok||d.error){msg.textContent="Couldn't read the card. Fill it in by hand.";return}
     const f=$("form");let n=0;
-    for(const k of ["player","team","sport","year","set","cardNo","rookie","numbered","special","grade","notes"]){
+    for(const k of ["player","team","sport","year","set","cardNo","rookie","numbered","auto","patch","graded","gradeCo","gradeNum","guess","notes"]){
       const el=f.elements[k];if(!el||d[k]==null||d[k]==="")continue;
       if(el.tagName==="SELECT"){if(editing&&editing[k])continue;if([...el.options].some(o=>o.value===d[k])){el.value=d[k];n++}}
       else if(!el.value){el.value=d[k];n++}
     }
+    showGraded();
     msg.textContent=`Filled ${n} boxes from the photo. Check them, add Paid and Value, then Save.`;
   }catch(e){msg.textContent="Couldn't read the card. Fill it in by hand."}
 }
-$("pRemove").onclick=()=>{pendingPhoto=null;removePhoto=true;$("pPreview").hidden=true;$("pRemove").hidden=true;$("pFile").value=""};
 $("cancelBtn").onclick=()=>$("dlg").close();
 $("form").onsubmit=async e=>{
   e.preventDefault();$("saveBtn").disabled=true;
   const data=Object.fromEntries(new FormData($("form")).entries());
   const c=editing?{...editing,...data}:{id:newId(),added:new Date().toISOString(),...data};
   try{
-    if(pendingPhoto){const pid=newId();const r=await fetch("/api/photo?id="+pid,{method:"PUT",body:pendingPhoto});
-      if(!r.ok)throw new Error("photo");if(c.photo)fetch("/api/photo?id="+c.photo,{method:"DELETE"});c.photo=pid}
-    else if(removePhoto&&c.photo){fetch("/api/photo?id="+c.photo,{method:"DELETE"});c.photo=""}
+    if(c.graded!=="Yes"){c.gradeCo="";c.gradeNum=""}
+    for(const side of ["front","back"]){const key=SIDE[side];
+      if(pending[side]){const pid=newId();const r=await fetch("/api/photo?id="+pid,{method:"PUT",body:pending[side]});
+        if(!r.ok)throw new Error("photo");if(c[key])fetch("/api/photo?id="+c[key],{method:"DELETE"});c[key]=pid}
+      else if(removed[side]&&c[key]){fetch("/api/photo?id="+c[key],{method:"DELETE"});c[key]=""}}
     const before=cards.slice();
     cards=editing?cards.map(x=>x.id===c.id?c:x):[...cards,c];
     if(await save()){$("dlg").close();render()}else{cards=before;render()}
@@ -265,7 +281,7 @@ $("form").onsubmit=async e=>{
 $("delBtn").onclick=async()=>{
   if(!editing||!confirm(`Delete ${editing.player}? This can't be undone.`))return;
   const before=cards.slice();cards=cards.filter(x=>x.id!==editing.id);
-  if(await save()){if(editing.photo)fetch("/api/photo?id="+editing.photo,{method:"DELETE"});$("dlg").close();render()}else{cards=before;render()}
+  if(await save()){for(const k of ["photo","photoBack"])if(editing[k])fetch("/api/photo?id="+editing[k],{method:"DELETE"});$("dlg").close();render()}else{cards=before;render()}
 };
 document.querySelectorAll("#people .chip").forEach(b=>b.onclick=()=>{person=b.dataset.p;try{localStorage.setItem("cardPerson",person)}catch(e){}render()});
 // price lookup: searches SportsCardsPro by year + set + player + card #, fills Value with the ungraded price
@@ -283,13 +299,13 @@ $("priceBtn").onclick=async()=>{
   }catch(e){m.textContent="Lookup failed. Enter the value by hand."}
 };
 $("addBtn").onclick=()=>openEditor(null);
-$("rows").onclick=e=>{const big=e.target.dataset.big;if(big){e.stopPropagation();$("bigImg").src="/api/photo?id="+big;$("big").style.display="grid";return}
+$("rows").onclick=e=>{const big=e.target.dataset.big;if(big){e.stopPropagation();const c=cards.find(x=>x.id===big);$("bigImg").src="/api/photo?id="+c.photo;$("bigImg2").hidden=!c.photoBack;if(c.photoBack)$("bigImg2").src="/api/photo?id="+c.photoBack;$("big").style.display="grid";return}
   const tr=e.target.closest("tr.row");if(tr)openEditor(cards.find(c=>c.id===tr.dataset.id))};
 $("big").onclick=()=>$("big").style.display="none";
 document.querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll(".chip[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b));render()});
 document.querySelectorAll("th button").forEach(b=>b.onclick=()=>{const k=b.dataset.s;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=1}render()});
 $("search").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};
-$("csvBtn").onclick=()=>{const cols=["player","team","sport","year","set","cardNo","rookie","numbered","special","paid","value","acquired","notes"];
+$("csvBtn").onclick=()=>{const cols=["owner","player","team","sport","year","set","cardNo","rookie","numbered","auto","patch","graded","gradeCo","gradeNum","guess","paid","value","acquired","notes"];
   const csv=[cols.join(","),...cards.map(c=>cols.map(k=>`"${String(c[k]??"").replace(/"/g,'""')}"`).join(","))].join("\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="card-collection.csv";a.click()};
 load();
