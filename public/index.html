@@ -114,6 +114,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <img id="pPreview" alt="" hidden>
       <div style="display:grid;gap:6px">
         <label>Card photo<input type="file" id="pFile" accept="image/*"></label>
+        <div id="readMsg" class="status"></div>
         <button type="button" class="btn ghost" id="pRemove" hidden>Remove photo</button>
       </div>
     </div>
@@ -207,14 +208,32 @@ function shrink(file){return new Promise((res,rej)=>{const img=new Image();img.o
 
 function openEditor(c){
   editing=c;pendingPhoto=null;removePhoto=false;const f=$("form");f.reset();
-  $("dlgTitle").textContent=c?"Edit card":"Add card";$("delBtn").hidden=!c;
+  $("readMsg").textContent="Pick a photo and the card fills itself in.";$("dlgTitle").textContent=c?"Edit card":"Add card";$("delBtn").hidden=!c;
   if(c)for(const el of f.elements)if(el.name&&c[el.name]!=null)el.value=c[el.name];
   $("pPreview").hidden=!(c&&c.photo);$("pRemove").hidden=!(c&&c.photo);
   if(c&&c.photo)$("pPreview").src="/api/photo?id="+c.photo;
   $("dlg").showModal();
 }
 $("pFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;pendingPhoto=await shrink(f);removePhoto=false;
-  $("pPreview").src=URL.createObjectURL(pendingPhoto);$("pPreview").hidden=false;$("pRemove").hidden=false};
+  $("pPreview").src=URL.createObjectURL(pendingPhoto);$("pPreview").hidden=false;$("pRemove").hidden=false;readCard(pendingPhoto)};
+// photo -> Claude reads the card -> fills every box you have not typed in yet
+async function readCard(blob){
+  const msg=$("readMsg");msg.textContent="Reading the card…";
+  try{
+    const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(",")[1]);fr.readAsDataURL(blob)});
+    const r=await fetch("/api/read-card",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({image:b64})});
+    const d=await r.json();
+    if(d.error==="no_key"){msg.textContent="Card reading isn't set up yet (API key missing in Netlify).";return}
+    if(!r.ok||d.error){msg.textContent="Couldn't read the card. Fill it in by hand.";return}
+    const f=$("form");let n=0;
+    for(const k of ["player","team","sport","year","set","cardNo","rookie","numbered","special","notes"]){
+      const el=f.elements[k];if(!el||d[k]==null||d[k]==="")continue;
+      if(el.tagName==="SELECT"){if(editing&&editing[k])continue;if([...el.options].some(o=>o.value===d[k])){el.value=d[k];n++}}
+      else if(!el.value){el.value=d[k];n++}
+    }
+    msg.textContent=`Filled ${n} boxes from the photo. Check them, add Paid and Value, then Save.`;
+  }catch(e){msg.textContent="Couldn't read the card. Fill it in by hand."}
+}
 $("pRemove").onclick=()=>{pendingPhoto=null;removePhoto=true;$("pPreview").hidden=true;$("pRemove").hidden=true;$("pFile").value=""};
 $("cancelBtn").onclick=()=>$("dlg").close();
 $("form").onsubmit=async e=>{
