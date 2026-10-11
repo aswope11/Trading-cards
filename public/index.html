@@ -159,9 +159,10 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <label class="gradedOnly" hidden>Grading company<select name="gradeCo"><option>PSA</option><option>BGS (Beckett)</option><option>SGC</option><option>CGC</option><option>TAG</option><option>HGA</option><option>CSG</option><option>ISA</option><option>GMA</option><option>KSA</option><option>MNT</option><option>AGS</option><option>Other</option></select></label>
       <label class="gradedOnly" hidden>Grade<input name="gradeNum" inputmode="decimal" placeholder="10"><span class="help">The number on the slab label</span></label>
       <label>Paid ($)<input name="paid" type="number" step="0.01" min="0"></label>
-      <label>Current value ($)<input name="value" type="number" step="0.01" min="0"><button type="button" class="btn ghost" id="priceBtn" style="padding:6px 10px;font-size:.85rem">Look up price</button><span class="help" id="priceMsg">Ungraded sold price from SportsCardsPro</span></label>
+      <label>Current value ($)<input name="value" type="number" step="0.01" min="0"><button type="button" class="btn ghost" id="priceBtn" style="padding:6px 10px;font-size:.85rem">Get market price</button><span class="help" id="priceMsg">Searches recent sold sales (about 30–60 sec)</span></label>
       <label>Date got it<input name="acquired" type="date"></label>
     </div>
+    <div id="marketBox"></div>
     <label>Notes<textarea name="notes" rows="2"></textarea></label>
     <label id="guessBox">Guesstimate — the app's opinion<input name="guess" placeholder="PSA 8-9"><span class="help">An assumption from the photo only (centering, corners, edges, surface). Not a real grade.</span></label>
     <div class="actions">
@@ -264,7 +265,7 @@ function shrink(file){return new Promise((res,rej)=>{const img=new Image();img.o
 
 function openEditor(c){
   editing=c;pending={front:null,back:null};removed={front:false,back:false};const f=$("form");f.reset();
-  $("readMsg").textContent="Pick a photo and the card fills itself in.";$("priceMsg").textContent="Ungraded sold price from SportsCardsPro";$("dlgTitle").textContent=c?"Edit card":"Add card";$("delBtn").hidden=!c;
+  $("readMsg").textContent="Pick a photo and the card fills itself in.";$("priceMsg").textContent="Searches recent sold sales (about 30–60 sec)";pendingMarket=null;$("marketBox").innerHTML=c&&c.market?marketHtml(c.market):"";$("dlgTitle").textContent=c?"Edit card":"Add card";$("delBtn").hidden=!c;
   if(!c&&person)f.elements.owner.value=person;
   if(c)for(const el of f.elements)if(el.name&&c[el.name]!=null)el.value=c[el.name];
   for(const side of ["front","back"]){const id=c&&c[SIDE[side]];$("pPreview_"+side).hidden=!id;$("pRemove_"+side).hidden=!id;$("pFile_"+side).value="";if(id)$("pPreview_"+side).src="/api/photo?id="+id}
@@ -307,6 +308,7 @@ $("form").onsubmit=async e=>{
   const c=editing?{...editing,...data}:{id:newId(),added:new Date().toISOString(),...data};
   try{
     if(c.graded!=="Yes"){c.gradeCo="";c.gradeNum=""}
+    if(pendingMarket)c.market=pendingMarket;
     for(const side of ["front","back"]){const key=SIDE[side];
       if(pending[side]){const pid=newId();const r=await fetch("/api/photo?id="+pid,{method:"PUT",body:pending[side]});
         if(!r.ok)throw new Error("photo");if(c[key])fetch("/api/photo?id="+c[key],{method:"DELETE"});c[key]=pid}
@@ -323,19 +325,47 @@ $("delBtn").onclick=async()=>{
   if(await save()){for(const k of ["photo","photoBack"])if(editing[k])fetch("/api/photo?id="+editing[k],{method:"DELETE"});$("dlg").close();render()}else{cards=before;render()}
 };
 document.querySelectorAll("#people .chip").forEach(b=>b.onclick=()=>{person=b.dataset.p;try{localStorage.setItem("cardPerson",person)}catch(e){}render()});
-// price lookup: searches SportsCardsPro by year + set + player + card #, fills Value with the ungraded price
+// ---------- Market price ----------
+// Searches recent SOLD sales for this exact card (runs ~30-60 sec on the server), then:
+// Value = the MIDDLE price (median) of the sales that match this card's condition — shown with every sale so you can check it.
+let pendingMarket=null;
+const f$=x=>x==null?"—":"$"+Number(x).toFixed(2);
+function median(a){const s=[...a].sort((x,y)=>x-y),n=s.length;return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):null}
+function marketPick(d){
+  const cond=(d.condition||"raw").toLowerCase();
+  const want=x=>cond.startsWith("raw")?/raw|ungraded/i.test(x.condition||"raw"):(x.condition||"").toLowerCase().replace(/\s+/g," ")===cond.replace(/\s+/g," ");
+  const use=d.comps.filter(want);
+  return {use,mid:median(use.map(x=>x.price))};
+}
+function marketHtml(d){
+  if(d.error)return `<div class="status">Market search failed${d.error==="no_key"?" (API key missing)":""}. Try again.</div>`;
+  const {use,mid}=marketPick(d);
+  const g=d.gradedPrices||{};
+  const rows=d.comps.map(x=>`<tr style="${use.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.date||"")}</td><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td>${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.source||"link")}</a>`:esc(x.source||"")}</td></tr>`).join("");
+  return `<div class="score" style="display:grid;gap:6px">
+    <small>Market check ${d.checkedAt?new Date(d.checkedAt).toLocaleDateString():""} · matched: ${esc(d.match||d.searched||"")} · confidence ${esc(d.confidence||"?")} · trend ${esc(d.trend||"?")}</small>
+    <b>${mid!=null?f$(mid):"No matching sales"}</b>
+    <small>${mid!=null?`Middle price of the ${use.length} ${esc(d.condition)} sale${use.length>1?"s":""} in bold below (half sold higher, half lower).`:`None of the sales found were ${esc(d.condition)}.`} Other grades: raw ${f$(d.rawPrice)} · PSA 8 ${f$(g["PSA 8"])} · PSA 9 ${f$(g["PSA 9"])} · PSA 10 ${f$(g["PSA 10"])}</small>
+    ${rows?`<div class="tablebox"><table><thead><tr><th style="padding:6px">Sold</th><th style="padding:6px">Condition</th><th style="padding:6px">Price</th><th style="padding:6px">Where</th></tr></thead><tbody>${rows}</tbody></table></div>`:""}
+    ${d.note?`<small>${esc(d.note)}</small>`:""}
+  </div>`;
+}
 $("priceBtn").onclick=async()=>{
-  const f=$("form"),m=$("priceMsg"),v=k=>f.elements[k].value.trim();
-  const q=[v("year"),v("set"),v("player"),v("cardNo")?("#"+v("cardNo")):""].filter(Boolean).join(" ");
-  if(!v("player")){m.textContent="Fill in the player first.";return}
-  m.textContent="Looking up…";
-  try{const r=await fetch("/api/price?q="+encodeURIComponent(q));const d=await r.json();
-    if(d.error==="no_key"){m.textContent="Price lookup isn't set up yet (SportsCardsPro key missing in Netlify).";return}
-    if(!r.ok||d.error){m.textContent="No match found. Enter the value by hand.";return}
-    const f$=x=>x==null?"—":"$"+x.toFixed(2);
-    if(d.raw!=null)f.elements.value.value=d.raw.toFixed(2);
-    m.textContent=`Matched: ${d.name}. Ungraded ${f$(d.raw)} · PSA 9 ${f$(d.psa9)} · PSA 10 ${f$(d.psa10)}. Check the match is your card.`;
-  }catch(e){m.textContent="Lookup failed. Enter the value by hand."}
+  const f=$("form"),m=$("priceMsg");
+  const card=Object.fromEntries(new FormData(f).entries());
+  if(!card.player){m.textContent="Fill in the player first.";return}
+  const id=newId();$("priceBtn").disabled=true;m.textContent="Searching recent sales… (about 30–60 sec)";
+  try{
+    await fetch("/.netlify/functions/market-background",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id,card})});
+    let d={pending:true};
+    for(let i=0;i<40&&d.pending;i++){await new Promise(r=>setTimeout(r,3000));d=await (await fetch("/api/market?id="+id,{cache:"no-store"})).json()}
+    if(d.pending){m.textContent="Still searching took too long. Try again.";return}
+    $("marketBox").innerHTML=marketHtml(d);
+    if(!d.error){pendingMarket=d;const {mid}=marketPick(d);if(mid!=null)f.elements.value.value=mid.toFixed(2);
+      m.textContent=mid!=null?"Value filled in from recent sales — see the list below. Hit Save to keep it.":"No sales matched this card's condition — see the list below."}
+    else m.textContent="Search failed. Try again.";
+  }catch(e){m.textContent="Search failed. Try again."}
+  finally{$("priceBtn").disabled=false}
 };
 $("addBtn").onclick=()=>openEditor(null);
 $("rows").onclick=e=>{const big=e.target.dataset.big;if(big){e.stopPropagation();const c=cards.find(x=>x.id===big);$("bigImg").src="/api/photo?id="+c.photo;$("bigImg2").hidden=!c.photoBack;if(c.photoBack)$("bigImg2").src="/api/photo?id="+c.photoBack;$("big").style.display="grid";return}
