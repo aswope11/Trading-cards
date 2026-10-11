@@ -60,8 +60,13 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
 
 /* grade check */
 #gdlg{width:min(900px,calc(100% - 16px))}
-.stage{position:relative;display:inline-block;max-width:100%;touch-action:none;user-select:none}
-.stage img{display:block;max-width:100%;max-height:62vh;border-radius:4px}
+#stageWrap{overflow:auto;max-height:66vh;border:1px solid var(--line);border-radius:6px;text-align:center;-webkit-overflow-scrolling:touch}
+.stage{position:relative;display:inline-block;max-width:100%;user-select:none;-webkit-user-select:none}
+.stage.zoomed{max-width:none}
+.stage img{display:block;max-width:100%;max-height:62vh;border-radius:4px;pointer-events:none}
+.stage.zoomed img{max-width:none;max-height:none;width:100%}
+.ln{touch-action:none}
+#loupe{position:fixed;width:150px;height:150px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.6);pointer-events:none;z-index:50;display:none;background:#000}
 .ln{position:absolute;z-index:2}
 .ln.v{top:0;bottom:0;width:22px;margin-left:-11px;cursor:ew-resize}
 .ln.h{left:0;right:0;height:22px;margin-top:-11px;cursor:ns-resize}
@@ -178,7 +183,9 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
     <h2>Grade check</h2>
     <div class="bar"><button type="button" class="chip" data-side="front" aria-pressed="true">Front</button><button type="button" class="chip" data-side="back" aria-pressed="false">Back</button></div>
     <div class="help">Drag the <b style="color:#CE1126">red lines</b> onto the card's outside edges and the <b style="color:#6CACE4">blue lines</b> onto the inside of the border. Centering is measured from where you put them.</div>
-    <div style="text-align:center"><div class="stage" id="stage"><img id="gImg" alt=""></div></div>
+    <div class="bar"><span class="help" style="font-weight:600">Zoom</span><button type="button" class="chip" data-zoom="1" aria-pressed="true">Fit</button><button type="button" class="chip" data-zoom="2" aria-pressed="false">2×</button><button type="button" class="chip" data-zoom="3" aria-pressed="false">3×</button><button type="button" class="chip" data-zoom="5" aria-pressed="false">5×</button><span class="help">Zoomed in: drag the picture with one finger to move around. A magnifier pops up over your finger while you drag a line.</span></div>
+    <div id="stageWrap"><div class="stage" id="stage"><img id="gImg" alt=""></div></div>
+    <canvas id="loupe" width="300" height="300"></canvas>
     <div class="scores" id="centerOut"></div>
     <div class="help" style="font-weight:600">Corners, zoomed in from your photo</div>
     <div class="corners" id="cornerBox"></div>
@@ -409,8 +416,10 @@ function drawLines(){
     d.onpointerdown=e=>{e.preventDefault();d.setPointerCapture(e.pointerId);
       d.onpointermove=ev=>{const r=st.getBoundingClientRect();
         let f=v?(ev.clientX-r.left)/r.width:(ev.clientY-r.top)/r.height;f=Math.min(1,Math.max(0,f));
-        L[kind][k]=f;d.style[v?"left":"top"]=(f*100)+"%";showCentering()};
-      d.onpointerup=()=>{d.onpointermove=null;drawCorners()}};
+        L[kind][k]=f;d.style[v?"left":"top"]=(f*100)+"%";showCentering();
+        const fx=v?f:(ev.clientX-r.left)/r.width, fy=v?(ev.clientY-r.top)/r.height:f;
+        loupe(ev.clientX,ev.clientY,fx,fy,v,kind==="outer"?"#CE1126":"#6CACE4")};
+      d.onpointerup=d.onpointercancel=()=>{d.onpointermove=null;$("loupe").style.display="none";drawCorners()}};
     st.appendChild(d);
   }
 }
@@ -442,7 +451,7 @@ function showVerdict(){
   $("gUse").disabled=false;
 }
 async function loadSide(side){
-  G.side=side;document.querySelectorAll("#gdlg [data-side]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.side===side));
+  setZoom(1);G.side=side;document.querySelectorAll("#gdlg [data-side]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.side===side));
   const src=photoSrc(side);const img=$("gImg");
   if(!src){img.removeAttribute("src");$("cornerBox").innerHTML='<div class="status">No '+side+' photo on this card.</div>';$("centerOut").innerHTML="";$("stage").querySelectorAll(".ln").forEach(e=>e.remove());return}
   G.lines[side]=G.lines[side]||defLines();
@@ -468,6 +477,29 @@ $("gradeBtn").onclick=async()=>{
 document.querySelectorAll("#gdlg [data-side]").forEach(b=>b.onclick=()=>loadSide(b.dataset.side));
 $("gClose").onclick=()=>$("gdlg").close();
 $("gUse").onclick=()=>{const f=$("form");f.elements.guess.value=G.text;$("gdlg").close()};
+
+// magnifier: shows 4x the area right under your finger, with the line you're dragging, sitting above your finger
+function loupe(cx,cy,fx,fy,vertical,color){
+  const img=$("gImg"),lp=$("loupe"),W=img.naturalWidth,H=img.naturalHeight;if(!W)return;
+  const shown=$("stage").getBoundingClientRect().width;
+  const src=(150/4)*(W/shown);                    // 4x what's on screen
+  const g=lp.getContext("2d");g.fillStyle="#000";g.fillRect(0,0,300,300);
+  g.drawImage(img,fx*W-src/2,fy*H-src/2,src,src,0,0,300,300);
+  g.strokeStyle=color;g.lineWidth=3;g.beginPath();
+  if(vertical){g.moveTo(150,0);g.lineTo(150,300)}else{g.moveTo(0,150);g.lineTo(300,150)}
+  g.stroke();
+  lp.style.left=Math.max(4,Math.min(innerWidth-154,cx-75))+"px";
+  lp.style.top=(cy>200?cy-185:cy+40)+"px";lp.style.display="block";
+}
+// zoom: makes the photo bigger inside the box; scroll/drag the picture to move around
+function setZoom(z){
+  const st=$("stage"),wrap=$("stageWrap");
+  document.querySelectorAll("#gdlg [data-zoom]").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.zoom===z));
+  if(z===1){st.classList.remove("zoomed");st.style.width="";return}
+  const base=Math.min(wrap.clientWidth-4,$("gImg").naturalWidth?($("gImg").naturalWidth/$("gImg").naturalHeight)*(innerHeight*.62):wrap.clientWidth);
+  st.classList.add("zoomed");st.style.width=(base*z)+"px";
+}
+document.querySelectorAll("#gdlg [data-zoom]").forEach(b=>b.onclick=()=>setZoom(+b.dataset.zoom));
 </script>
 </body>
 </html>
