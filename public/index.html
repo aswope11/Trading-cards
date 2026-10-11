@@ -140,7 +140,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
 </div>
 
 <dialog id="dlg">
-  <form class="dlg" method="dialog" id="form">
+  <form class="dlg" method="dialog" id="form" novalidate>
     <h2 id="dlgTitle">Add card</h2>
     <div class="photoArea">
       <div class="slot"><label>Front photo<input type="file" id="pFile_front" accept="image/*"></label><img id="pPreview_front" alt="" hidden><button type="button" class="btn ghost" id="pRemove_front" hidden>Remove front</button></div>
@@ -213,19 +213,21 @@ const isRc=c=>c.rookie==="Yes";
 const newId=()=>Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8);
 
 async function load(){
-  try{const r=await fetch("/api/cards",{cache:"no-store"});const d=await r.json();cards=d.cards||[];
-    $("status").textContent=d.savedAt?`${cards.length} cards · last saved ${new Date(d.savedAt).toLocaleString()}`:"No cards yet";render();}
-  catch(e){$("status").textContent="Couldn't load. Reload the page.";}
+  try{const r=await fetch("/api/cards",{cache:"no-store"});const d=await r.json();if(!r.ok)throw new Error(d.error||r.status);cards=d.cards||[];
+    $("status").textContent=cards.length?`${cards.length} cards on file`:"No cards yet";render();}
+  catch(e){$("status").textContent="Couldn't load ("+e.message+"). Reload the page.";}
 }
-async function save(){
+// saves ONE card, then reads that card back from the server to prove it landed. Any failure says exactly what broke.
+async function saveCard(c){
   $("status").textContent="Saving…";
-  const r=await fetch("/api/cards",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({cards})});
-  if(!r.ok){$("status").textContent="SAVE FAILED — nothing was saved. Try again.";alert("Save failed. Your change did not save.");return false}
-  // prove the save: read it back from the server
-  const chk=await (await fetch("/api/cards",{cache:"no-store"})).json();
-  const okCount=(chk.cards||[]).length===cards.length;
-  $("status").textContent=okCount?`${cards.length} cards · saved ${new Date(chk.savedAt).toLocaleTimeString()}`:"Save didn't check out — reload the page.";
-  return okCount;
+  const r=await fetch("/api/cards",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({card:c})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error("server said "+r.status+(d.error?" — "+d.error:""));
+  const chk=await (await fetch("/api/cards?id="+c.id,{cache:"no-store"})).json();
+  if(!chk.card||chk.card.savedAt!==d.card.savedAt)throw new Error("saved, but reading it back didn't match");
+  const i=cards.findIndex(x=>x.id===c.id);if(i>=0)cards[i]=chk.card;else cards.push(chk.card);
+  $("status").textContent=`${cards.length} cards · saved ${new Date().toLocaleTimeString()}`;
+  return chk.card;
 }
 
 function render(){
@@ -313,26 +315,35 @@ async function readCard(){
 }
 $("cancelBtn").onclick=()=>$("dlg").close();
 $("form").onsubmit=async e=>{
-  e.preventDefault();$("saveBtn").disabled=true;
+  e.preventDefault();$("saveBtn").disabled=true;$("saveBtn").textContent="Saving…";
   const data=Object.fromEntries(new FormData($("form")).entries());
   const c=editing?{...editing,...data}:{id:newId(),added:new Date().toISOString(),...data};
+  let step="getting ready";
   try{
     if(c.graded!=="Yes"){c.gradeCo="";c.gradeNum=""}
     if(pendingMarket)c.market=pendingMarket;
     for(const side of ["front","back"]){const key=SIDE[side];
-      if(pending[side]){const pid=newId();const r=await fetch("/api/photo?id="+pid,{method:"PUT",body:pending[side]});
-        if(!r.ok)throw new Error("photo");if(c[key])fetch("/api/photo?id="+c[key],{method:"DELETE"});c[key]=pid}
+      if(pending[side]){step="uploading the "+side+" photo";const pid=newId();
+        const r=await fetch("/api/photo?id="+pid,{method:"PUT",body:pending[side]});
+        if(!r.ok)throw new Error("server said "+r.status);
+        if(c[key])fetch("/api/photo?id="+c[key],{method:"DELETE"});c[key]=pid;pending[side]=null}
       else if(removed[side]&&c[key]){fetch("/api/photo?id="+c[key],{method:"DELETE"});c[key]=""}}
-    const before=cards.slice();
-    cards=editing?cards.map(x=>x.id===c.id?c:x):[...cards,c];
-    if(await save()){$("dlg").close();render()}else{cards=before;render()}
-  }catch(err){alert("Photo upload failed. Nothing was saved.")}
-  $("saveBtn").disabled=false;
+    step="saving the card";
+    await saveCard(c);
+    $("dlg").close();render();
+  }catch(err){
+    $("status").textContent="NOT SAVED — "+step+" failed";
+    alert("NOT SAVED.\nStep that failed: "+step+"\nWhy: "+(err&&err.message||err)+"\n\nYour card is still open — tap Save again, or screenshot this for Claude.");
+  }finally{$("saveBtn").disabled=false;$("saveBtn").textContent="Save"}
 };
 $("delBtn").onclick=async()=>{
-  if(!editing||!confirm(`Delete ${editing.player}? This can't be undone.`))return;
-  const before=cards.slice();cards=cards.filter(x=>x.id!==editing.id);
-  if(await save()){for(const k of ["photo","photoBack"])if(editing[k])fetch("/api/photo?id="+editing[k],{method:"DELETE"});$("dlg").close();render()}else{cards=before;render()}
+  if(!editing||!confirm(`Delete ${editing.player||"this card"}? This can't be undone.`))return;
+  try{
+    const r=await fetch("/api/cards?id="+editing.id,{method:"DELETE"});if(!r.ok)throw new Error("server said "+r.status);
+    const chk=await (await fetch("/api/cards?id="+editing.id,{cache:"no-store"})).json();if(chk.card)throw new Error("it's still there");
+    for(const k of ["photo","photoBack"])if(editing[k])fetch("/api/photo?id="+editing[k],{method:"DELETE"});
+    cards=cards.filter(x=>x.id!==editing.id);$("dlg").close();render();
+  }catch(err){alert("NOT DELETED. Why: "+err.message)}
 };
 document.querySelectorAll("#people .chip").forEach(b=>b.onclick=()=>{person=b.dataset.p;try{localStorage.setItem("cardPerson",person)}catch(e){}render()});
 // ---------- Market price ----------
