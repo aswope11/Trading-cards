@@ -10,7 +10,7 @@
 :root{--bg:#eaf2fb;--panel:#fff;--ink:#14213D;--muted:#55627a;--line:#c9d9ec;--navy:#14213D;--red:#CE1126;--powder:#6CACE4;--foil:#b8892b;--rc:#CE1126;--good:#1d7a46;--bad:#CE1126;
 --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;--body:"Barlow",system-ui,sans-serif;color-scheme:light}
 @media (prefers-color-scheme:dark){:root{--bg:#0b1324;--panel:#14213D;--ink:#eef3fa;--muted:#a9bad3;--line:#26375c;--navy:#6CACE4;--red:#ef4056;--powder:#6CACE4;--foil:#e0b65a;--rc:#ef4056;--good:#5fd08f;--bad:#ef4056;color-scheme:dark}}
-*{box-sizing:border-box}
+*{box-sizing:border-box}[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px}
 .wrap{max-width:1250px;margin:0 auto;padding:20px 16px 60px;display:grid;gap:14px}
 header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;border-radius:6px;background:#14213D;border-bottom:5px solid #CE1126;padding:12px 16px}
@@ -139,7 +139,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <label>Date got it<input name="acquired" type="date"></label>
     </div>
     <label>Notes<textarea name="notes" rows="2"></textarea></label>
-    <label>Guesstimate — the app's opinion<input name="guess" placeholder="PSA 8-9"><span class="help">An assumption from the photo only (centering, corners, edges, surface). Not a real grade.</span></label>
+    <label id="guessBox">Guesstimate — the app's opinion<input name="guess" placeholder="PSA 8-9"><span class="help">An assumption from the photo only (centering, corners, edges, surface). Not a real grade.</span></label>
     <div class="actions">
       <button type="button" class="btn danger" id="delBtn" hidden>Delete card</button>
       <span style="flex:1"></span>
@@ -213,7 +213,7 @@ function renderFor(cards){
     <td>${esc(c.set)}${c.cardNo?` <span class="muted">#${esc(c.cardNo)}</span>`:""}</td>
     <td>${isRc(c)?'<span class="tag rc">RC</span>':'<span class="muted">No</span>'}</td>
     <td>${c.numbered?`<span class="tag foil">${esc(c.numbered)}</span>`:'<span class="muted">—</span>'}</td>
-    <td>${specTags(c).length?specTags(c).map(t=>`<span class="tag ${t==="Auto"||t==="Patch"?"spec":"grd"}">${esc(t)}</span>`).join(" "):'<span class="muted">—</span>'}</td>
+    <td>${specTags(c).length?specTags(c).map(t=>`<span class="tag ${t==="Auto"||t==="Patch"?"spec":"grd"}">${esc(t)}</span>`).join(" "):'<span class="muted">—</span>'}${!isGraded(c)&&c.guess?`<div class="muted" style="font-size:.8rem">Guess: ${esc(c.guess)}</div>`:""}</td>
     <td class="money">${$$(p)}</td>
     <td class="money">${$$(v)}${d!=null?`<div class="${d>=0?"up":"down"}" style="font-size:.8rem">${d>=0?"+":"−"}${$$(Math.abs(d))}</div>`:""}</td></tr>`}).join("");
 }
@@ -233,7 +233,7 @@ function openEditor(c){
   $("dlg").showModal();
 }
 // grading company + number only show for cards in a real slab
-function showGraded(){const on=$("gradedSel").value==="Yes";document.querySelectorAll(".gradedOnly").forEach(el=>el.hidden=!on)}
+function showGraded(){const on=$("gradedSel").value==="Yes";document.querySelectorAll(".gradedOnly").forEach(el=>el.hidden=!on);$("guessBox").hidden=on}
 $("gradedSel").onchange=showGraded;
 for(const side of ["front","back"]){
   $("pFile_"+side).onchange=async e=>{const f=e.target.files[0];if(!f)return;pending[side]=await shrink(f);removed[side]=false;
