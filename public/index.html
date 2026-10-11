@@ -73,7 +73,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
 .ln::after{content:"";position:absolute;background:var(--c)}
 .ln.v::after{left:10px;top:0;bottom:0;width:2px}
 .ln.h::after{top:10px;left:0;right:0;height:2px}
-.ln.o{--c:#CE1126}.ln.i{--c:#6CACE4}
+.ln.o{--c:#CE1126}.ln.i{--c:#6CACE4}.ln.i.unsure{--c:#f5b301}
 .ln span{position:absolute;font-size:.7rem;font-weight:700;background:var(--c);color:#fff;padding:1px 4px;border-radius:3px;white-space:nowrap}
 .ln.v span{top:2px;left:12px}.ln.h span{left:2px;top:12px}
 .corners{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -182,7 +182,8 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
   <div class="dlg">
     <h2>Grade check</h2>
     <div class="bar"><button type="button" class="chip" data-side="front" aria-pressed="true">Front</button><button type="button" class="chip" data-side="back" aria-pressed="false">Back</button></div>
-    <div class="help">Drag the <b style="color:#CE1126">red lines</b> onto the card's outside edges and the <b style="color:#6CACE4">blue lines</b> onto the inside of the border. Centering is measured from where you put them.</div>
+    <div class="help">The app finds the card, straightens it, and measures the border on all 4 sides by itself (about 100 measurements per side, middle one wins). <b style="color:#6CACE4">Blue</b> = measured and sure. <b style="color:#f5b301">Yellow</b> = not sure — zoom in and drag that one line onto the inside of the border.</div>
+    <div id="autoMsg" class="status" style="font-weight:600"></div>
     <div class="bar"><span class="help" style="font-weight:600">Zoom</span><button type="button" class="chip" data-zoom="1" aria-pressed="true">Fit</button><button type="button" class="chip" data-zoom="2" aria-pressed="false">2×</button><button type="button" class="chip" data-zoom="3" aria-pressed="false">3×</button><button type="button" class="chip" data-zoom="5" aria-pressed="false">5×</button><span class="help">Zoomed in: drag the picture with one finger to move around. A magnifier pops up over your finger while you drag a line.</span></div>
     <div id="stageWrap"><div class="stage" id="stage"><img id="gImg" alt=""></div></div>
     <canvas id="loupe" width="300" height="300"></canvas>
@@ -197,6 +198,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
 </dialog>
 <div class="big" id="big"><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center"><img id="bigImg" alt=""><img id="bigImg2" alt="" hidden></div></div>
 
+<script src="/measure.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 let person=(()=>{try{return localStorage.getItem("cardPerson")??"Dad"}catch(e){return "Dad"}})();
@@ -412,7 +414,9 @@ function drawLines(){
     const d=document.createElement("div");const v=k==="l"||k==="r";
     d.className=`ln ${v?"v":"h"} ${kind==="outer"?"o":"i"}`;
     d.style[v?"left":"top"]=(L[kind][k]*100)+"%";
-    d.innerHTML=`<span>${kind==="outer"?"edge":"border"}</span>`;
+    const unsure=kind==="inner"&&G.sure&&G.sure[G.side]&&G.sure[G.side][k]===false;
+    if(unsure)d.classList.add("unsure");
+    d.innerHTML=`<span>${kind==="outer"?"edge":unsure?"check":"border"}</span>`;
     d.onpointerdown=e=>{e.preventDefault();d.setPointerCapture(e.pointerId);
       d.onpointermove=ev=>{const r=st.getBoundingClientRect();
         let f=v?(ev.clientX-r.left)/r.width:(ev.clientY-r.top)/r.height;f=Math.min(1,Math.max(0,f));
@@ -437,7 +441,7 @@ function drawCorners(){
   const pts=[["Top left",o.l,o.t],["Top right",o.r,o.t],["Bottom left",o.l,o.b],["Bottom right",o.r,o.b]];
   $("cornerBox").innerHTML=pts.map(p=>`<figure><canvas width="240" height="240"></canvas><figcaption>${p[0]}</figcaption></figure>`).join("");
   $("cornerBox").querySelectorAll("canvas").forEach((cv,n)=>{const [,x,y]=pts[n];
-    cv.getContext("2d").drawImage(img,x*W-size/2,y*H-size/2,size,size,0,0,240,240)});
+    const sx=Math.min(Math.max(x*W-size/2,0),W-size),sy=Math.min(Math.max(y*H-size/2,0),H-size);cv.getContext("2d").drawImage(img,sx,sy,size,size,0,0,240,240)});
 }
 function showVerdict(){
   const a=G.ai;if(!a||a.error){$("verdict").hidden=true;$("gUse").disabled=true;return}
@@ -454,8 +458,23 @@ async function loadSide(side){
   setZoom(1);G.side=side;document.querySelectorAll("#gdlg [data-side]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.side===side));
   const src=photoSrc(side);const img=$("gImg");
   if(!src){img.removeAttribute("src");$("cornerBox").innerHTML='<div class="status">No '+side+' photo on this card.</div>';$("centerOut").innerHTML="";$("stage").querySelectorAll(".ln").forEach(e=>e.remove());return}
-  G.lines[side]=G.lines[side]||defLines();
-  img.onload=()=>{drawLines();showCentering();drawCorners()};img.src=src;
+  G.lines[side]=G.lines[side]||defLines();G.flat=G.flat||{};G.sure=G.sure||{};G.auto=G.auto||{};
+  img.onload=()=>{drawLines();showCentering();drawCorners()};
+  if(G.flat[side]){img.src=G.flat[side];return}
+  $("autoMsg").textContent="Finding the card and measuring the borders… (first time loads the measuring tool, ~10 sec)";
+  const raw=new Image();
+  raw.onload=async()=>{
+    const m=await autoMeasure(raw);if(G.side!==side)return;
+    if(m.error){
+      $("autoMsg").textContent=m.error==="nocard"?"Couldn't find the card's edges in this photo. Retake it on a dark, plain background with the whole card showing — or drag the lines by hand.":"Measuring tool didn't load. Drag the lines by hand.";
+      img.src=src;return}
+    G.flat[side]=m.flat.toDataURL("image/jpeg",.92);G.sure[side]=m.sure;G.auto[side]=true;
+    G.lines[side]={outer:{l:0,r:1,t:0,b:1},inner:m.inner};
+    const n=Object.values(m.sure).filter(Boolean).length;
+    $("autoMsg").textContent=n===4?"Measured automatically — all 4 sides sure.":`Measured automatically — ${n} of 4 sides sure. Zoom in and check the yellow line${4-n>1?"s":""}.`;
+    img.src=G.flat[side];
+  };
+  raw.onerror=()=>{img.src=src};raw.src=src;
 }
 $("gradeBtn").onclick=async()=>{
   if(!photoSrc("front")){alert("Add a front photo first.");return}
@@ -468,7 +487,7 @@ $("gradeBtn").onclick=async()=>{
     if(a.error){$("aiOut").innerHTML='<div class="status">Couldn\'t score the photo'+(a.error==="no_key"?" (API key missing).":". Try a clearer photo.")+'</div>';return}
     // AI's first guess at where the lines go (front only) — you fine-tune by dragging
     const ok=x=>x&&[x.l,x.r,x.t,x.b].every(v=>typeof v==="number"&&v>=0&&v<=1)&&x.l<x.r&&x.t<x.b;
-    if(ok(a.outer)&&ok(a.inner)){G.lines.front={outer:a.outer,inner:a.inner};if(G.side==="front")loadSide("front")}
+    if(ok(a.outer)&&ok(a.inner)&&!(G.auto&&G.auto.front)){G.lines.front={outer:a.outer,inner:a.inner};if(G.side==="front")loadSide("front")}
     const sc=(n,v,note)=>`<div class="score"><small>${n}</small><b>${v}</b><small>${esc(note||"")}</small></div>`;
     $("aiOut").innerHTML=sc("Corners",a.corners,a.cornersNote)+sc("Edges",a.edges,a.edgesNote)+sc("Surface",a.surface,a.surfaceNote);
     showVerdict();

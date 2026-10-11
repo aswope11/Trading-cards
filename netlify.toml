@@ -1,3 +1,9 @@
 [build]
   publish = "public"
   functions = "netlify/functions"
+
+# the measuring tool is big (13 MB) — let phones keep it so it only downloads once
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
