@@ -95,6 +95,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <button class="chip" data-p="Dad">Dad</button><button class="chip" data-p="Shep">Shep</button><button class="chip" data-p="Bubba">Bubba</button><button class="chip" data-p="McClainey">McClainey</button><button class="chip" data-p="">Everyone</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn ghost" id="repriceBtn">Reprice all</button>
       <button class="btn ghost" id="csvBtn">Download CSV</button>
       <button class="btn" id="addBtn">+ Add card</button>
     </div>
@@ -355,36 +356,41 @@ document.querySelectorAll("#people .chip").forEach(b=>b.onclick=()=>{person=b.da
 let pendingMarket=null;
 const f$=x=>x==null?"—":"$"+Number(x).toFixed(2);
 function median(a){const s=[...a].sort((x,y)=>x-y),n=s.length;return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):null}
-function marketPick(d){
-  const cond=(d.condition||"raw").toLowerCase();
-  const want=x=>cond.startsWith("raw")?/raw|ungraded/i.test(x.condition||"raw"):(x.condition||"").toLowerCase().replace(/\s+/g," ")===cond.replace(/\s+/g," ");
-  const use=(d.comps||[]).filter(want);
-  let mid=median(use.map(x=>x.price)),est=false;
-  // no sales at this exact condition: use the search's price for that grade (marked as an estimate)
-  if(mid==null){const k=(d.condition||"").replace(/\s+/g," ").trim();mid=cond.startsWith("raw")?d.rawPrice:(d.gradedPrices||{})[k];mid=typeof mid==="number"?mid:null;est=mid!=null}
-  return {use,mid,est};
+// THE VALUE RULE (same as the server, netlify/lib/market-core.mjs):
+// grade = slab grade; raw + guesstimate = one grade higher (range uses the higher number); raw no guess = raw.
+// price = LOWEST sold at that grade -> else 90% of LOWEST listing -> else the search's estimate.
+const normG=x=>String(x||"").toLowerCase().replace(/\s+/g," ").trim();
+const sameG=(cond,g)=>normG(g).startsWith("raw")?/raw|ungraded/i.test(cond||"raw"):normG(cond)===normG(g);
+function valueFor(d,g){
+  const sold=(d.comps||[]).filter(x=>sameG(x.condition,g)&&x.price>0);
+  if(sold.length)return {value:Math.min(...sold.map(x=>x.price)),how:`lowest of ${sold.length} ${g} sale${sold.length>1?"s":""}`,kind:"sold",rows:sold};
+  const lst=(d.listings||[]).filter(x=>sameG(x.condition,g)&&x.price>0);
+  if(lst.length){const lo=Math.min(...lst.map(x=>x.price));return {value:Math.round(lo*90)/100,how:`no ${g} sales · lowest listing ${f$(lo)} × 90%`,kind:"list",rows:lst}}
+  const est=normG(g).startsWith("raw")?d.rawPrice:(d.gradedPrices||{})[g];
+  return typeof est==="number"?{value:est,how:`no ${g} sales or listings · search's estimate`,kind:"est",rows:[]}:{value:null,how:`nothing found for ${g}`,kind:"none",rows:[]};
 }
+function marketPick(d){const v=valueFor(d,d.condition||"raw");return {use:v.rows,mid:v.value,est:v.kind==="est",how:v.how}}
 function marketHtml(d){
   if(d.error)return `<div class="status">Market search failed${d.error==="no_key"?" (API key missing)":""}. Try again.</div>`;
-  const {use,mid,est}=marketPick(d);
-  const g=d.gradedPrices||{};
-  const rows=d.comps.map(x=>`<tr style="${use.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.date||"")}</td><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td>${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.source||"link")}</a>`:esc(x.source||"")}</td></tr>`).join("");
-  // grade projections: PSA 10/9/8/7 + raw. Real sales at that grade win (middle price); otherwise the search's estimate.
-  const tiers=["PSA 10","PSA 9","PSA 8","PSA 7","Raw"];
-  const guessNum=(($("form").elements.guess||{}).value||"").match(/\d+/g)||[];
-  const tile=t=>{const sales=d.comps.filter(x=>t==="Raw"?/raw|ungraded/i.test(x.condition||""):(x.condition||"").replace(/\s+/g," ").toUpperCase()===t);
-    const v=sales.length?median(sales.map(x=>x.price)):(t==="Raw"?d.rawPrice:g[t]);
-    const hit=t!=="Raw"&&guessNum.includes(t.split(" ")[1]);
-    return `<div class="score" style="${hit?"border:2px solid var(--red)":""}"><small>${t}${hit?" · your guesstimate":""}</small><b>${f$(v)}</b><small>${sales.length?`middle of ${sales.length} sale${sales.length>1?"s":""}`:v!=null?"estimate":"no data"}</small></div>`};
+  const v=valueFor(d,d.condition||"raw");
+  const link=x=>x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.source||"link")}</a>`:esc(x.source||"");
+  const soldRows=(d.comps||[]).map(x=>`<tr style="${v.rows.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.date||"")}</td><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td>${link(x)}</td></tr>`).join("");
+  const listRows=(d.listings||[]).map(x=>`<tr style="${v.rows.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td class="money">${f$(Math.round(x.price*90)/100)}</td><td>${link(x)}</td></tr>`).join("");
+  const tiers=["PSA 10","PSA 9","PSA 8","PSA 7","raw"];
+  const tile=t=>{const r=valueFor(d,t);const hit=normG(t)===normG(d.condition);
+    return `<div class="score" style="${hit?"border:2px solid var(--red)":""}"><small>${t==="raw"?"Raw":t}${hit?" · priced as":""}</small><b>${f$(r.value)}</b><small>${r.kind==="sold"?"lowest sale":r.kind==="list"?"90% of lowest listing":r.kind==="est"?"estimate":"no data"}</small></div>`};
+  const th=h=>`<th style="padding:6px">${h}</th>`;
   return `<div class="score" style="display:grid;gap:6px">
     <small>Market check ${d.checkedAt?new Date(d.checkedAt).toLocaleDateString():""} · matched: ${esc(d.match||d.searched||"")} · confidence ${esc(d.confidence||"?")} · trend ${esc(d.trend||"?")}</small>
     <div style="font-weight:600">Grade projections — what it's worth at each grade</div>
     <div class="scores">${tiers.map(tile).join("")}</div>
-    <div style="font-weight:600;margin-top:4px">This card's value (${esc(d.condition)})</div>
-    <b>${mid!=null?f$(mid):"No price found"}</b>
-    <small>${est?`No ${esc(d.condition)} sales found, so this is the search's estimate for ${esc(d.condition)}.`:mid!=null?`Middle price of the ${use.length} ${esc(d.condition)} sale${use.length>1?"s":""} in bold below (half sold higher, half lower).`:`None of the sales found were ${esc(d.condition)}.`} </small>
+    <div style="font-weight:600;margin-top:4px">This card's value — priced as ${esc(d.condition)}</div>
+    <b>${f$(v.value)}</b>
+    <small>${esc(v.how)}. Rule: slab = its grade; raw = one grade above the guesstimate; lowest sale, else 90% of lowest listing, else estimate.</small>
     <div style="font-weight:600;margin-top:4px">Recent sales (eBay and others)</div>
-    ${rows?`<div class="tablebox"><table><thead><tr><th style="padding:6px">Sold</th><th style="padding:6px">Condition</th><th style="padding:6px">Price</th><th style="padding:6px">Where</th></tr></thead><tbody>${rows}</tbody></table></div>`:""}
+    ${soldRows?`<div class="tablebox"><table><thead><tr>${th("Sold")+th("Condition")+th("Price")+th("Where")}</tr></thead><tbody>${soldRows}</tbody></table></div>`:"<small>No sales found.</small>"}
+    <div style="font-weight:600;margin-top:4px">Listed for sale now</div>
+    ${listRows?`<div class="tablebox"><table><thead><tr>${th("Condition")+th("Asking")+th("90%")+th("Where")}</tr></thead><tbody>${listRows}</tbody></table></div>`:"<small>No listings found.</small>"}
     ${d.note?`<small>${esc(d.note)}</small>`:""}
   </div>`;
 }
@@ -399,12 +405,22 @@ $("priceBtn").onclick=async()=>{
     for(let i=0;i<40&&d.pending;i++){await new Promise(r=>setTimeout(r,3000));d=await (await fetch("/api/market?id="+id,{cache:"no-store"})).json()}
     if(d.pending){m.textContent="Still searching took too long. Try again.";return}
     $("marketBox").innerHTML=marketHtml(d);
-    if(!d.error){pendingMarket=d;const {mid}=marketPick(d);if(mid!=null)f.elements.value.value=mid.toFixed(2);
+    if(!d.error){pendingMarket=d;const {mid}=marketPick(d);if(mid!=null)f.elements.value.value=Number(mid).toFixed(2);
       m.textContent=mid!=null?"Value filled in from recent sales — see the list below. Hit Save to keep it.":"No sales matched this card's condition — see the list below."}
     else m.textContent="Search failed. Try again.";
   }catch(e){m.textContent="Search failed. Try again."}
   finally{$("priceBtn").disabled=false}
 };
+// Reprice all: runs the value rule on every card on the server (~1 min per 2 cards). Progress shows in the status line.
+async function watchReprice(){
+  for(;;){const st=await (await fetch("/api/reprice-all",{cache:"no-store"})).json();
+    if(st.running){$("status").textContent=`Repricing… ${st.done||0} of ${st.total||"?"} cards`;await new Promise(r=>setTimeout(r,5000));continue}
+    if(st.finishedAt){$("status").textContent=`Repriced ${st.done} cards${st.failed&&st.failed.length?` · couldn't price: ${st.failed.join(", ")}`:""} · ${new Date(st.finishedAt).toLocaleString()}`;await load()}
+    break}
+}
+$("repriceBtn").onclick=async()=>{if(!confirm("Reprice every card with the value rule? Takes a few minutes and costs roughly 10–20¢ per card in Anthropic credit."))return;
+  await fetch("/api/reprice-all?go=1",{cache:"no-store"});watchReprice()};
+fetch("/api/reprice-all",{cache:"no-store"}).then(r=>r.json()).then(st=>{if(st.running)watchReprice()}).catch(()=>{});
 $("addBtn").onclick=()=>openEditor(null);
 $("rows").onclick=e=>{const big=e.target.dataset.big;if(big){e.stopPropagation();const c=cards.find(x=>x.id===big);$("bigImg").src="/api/photo?id="+c.photo;$("bigImg2").hidden=!c.photoBack;if(c.photoBack)$("bigImg2").src="/api/photo?id="+c.photoBack;$("big").style.display="grid";return}
   const tr=e.target.closest("tr.row");if(tr)openEditor(cards.find(c=>c.id===tr.dataset.id))};
