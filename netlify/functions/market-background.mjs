@@ -19,13 +19,13 @@ export default async (req) => {
 Card: ${desc}
 Condition to price: ${cond}${c.graded !== "Yes" && c.guess ? ` (its estimated grade if graded: ${c.guess})` : ""}
 
-Search sold listings (eBay sold/completed, 130point, SportsCardsPro, Card Ladder, PSA auction prices). Only count real completed sales, not asking prices. Match the exact parallel/insert and serial numbering — a base card is not the same as a parallel. Collect up to 10 sales.
+Search sold listings (eBay sold/completed, 130point, SportsCardsPro, Card Ladder, PSA auction prices). Only count real completed sales, not asking prices. Match the exact parallel/insert and serial numbering — a base card is not the same as a parallel. Collect up to 12 sales, including graded PSA 10/9/8/7 sales when they exist.
 
 Reply with ONLY a JSON object, no other text:
 {"match":"the exact card you priced, in a few words",
  "comps":[{"date":"YYYY-MM-DD or best known","price":number,"condition":"raw" or e.g. "PSA 10","source":"site name","url":"link"}],
  "rawPrice":number or null (typical recent raw sale),
- "gradedPrices":{"PSA 10":number or null,"PSA 9":number or null,"PSA 8":number or null},
+ "gradedPrices":{"PSA 10":number or null,"PSA 9":number or null,"PSA 8":number or null,"PSA 7":number or null} (typical recent sale at each grade; estimate from nearby grades if no exact sales, never leave all null),
  "trend":"up" | "down" | "flat" | "unknown",
  "confidence":"high" | "medium" | "low",
  "note":"one short line: anything that makes these numbers shaky (few sales, wrong parallel risk, etc.)"}`;

@@ -279,6 +279,7 @@ function openEditor(c){
   if(c)for(const el of f.elements)if(el.name&&c[el.name]!=null)el.value=c[el.name];
   for(const side of ["front","back"]){const id=c&&c[SIDE[side]];$("pPreview_"+side).hidden=!id;$("pRemove_"+side).hidden=!id;$("pFile_"+side).value="";if(id)$("pPreview_"+side).src="/api/photo?id="+id}
   showGraded();
+  if(c&&c.market)$("marketBox").innerHTML=marketHtml(c.market);
   $("dlg").showModal();
 }
 // grading company + number only show for cards in a real slab
@@ -351,10 +352,21 @@ function marketHtml(d){
   const {use,mid}=marketPick(d);
   const g=d.gradedPrices||{};
   const rows=d.comps.map(x=>`<tr style="${use.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.date||"")}</td><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td>${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.source||"link")}</a>`:esc(x.source||"")}</td></tr>`).join("");
+  // grade projections: PSA 10/9/8/7 + raw. Real sales at that grade win (middle price); otherwise the search's estimate.
+  const tiers=["PSA 10","PSA 9","PSA 8","PSA 7","Raw"];
+  const guessNum=(($("form").elements.guess||{}).value||"").match(/\d+/g)||[];
+  const tile=t=>{const sales=d.comps.filter(x=>t==="Raw"?/raw|ungraded/i.test(x.condition||""):(x.condition||"").replace(/\s+/g," ").toUpperCase()===t);
+    const v=sales.length?median(sales.map(x=>x.price)):(t==="Raw"?d.rawPrice:g[t]);
+    const hit=t!=="Raw"&&guessNum.includes(t.split(" ")[1]);
+    return `<div class="score" style="${hit?"border:2px solid var(--red)":""}"><small>${t}${hit?" · your guesstimate":""}</small><b>${f$(v)}</b><small>${sales.length?`middle of ${sales.length} sale${sales.length>1?"s":""}`:v!=null?"estimate":"no data"}</small></div>`};
   return `<div class="score" style="display:grid;gap:6px">
     <small>Market check ${d.checkedAt?new Date(d.checkedAt).toLocaleDateString():""} · matched: ${esc(d.match||d.searched||"")} · confidence ${esc(d.confidence||"?")} · trend ${esc(d.trend||"?")}</small>
+    <div style="font-weight:600">Grade projections — what it's worth at each grade</div>
+    <div class="scores">${tiers.map(tile).join("")}</div>
+    <div style="font-weight:600;margin-top:4px">This card's value (${esc(d.condition)})</div>
     <b>${mid!=null?f$(mid):"No matching sales"}</b>
-    <small>${mid!=null?`Middle price of the ${use.length} ${esc(d.condition)} sale${use.length>1?"s":""} in bold below (half sold higher, half lower).`:`None of the sales found were ${esc(d.condition)}.`} Other grades: raw ${f$(d.rawPrice)} · PSA 8 ${f$(g["PSA 8"])} · PSA 9 ${f$(g["PSA 9"])} · PSA 10 ${f$(g["PSA 10"])}</small>
+    <small>${mid!=null?`Middle price of the ${use.length} ${esc(d.condition)} sale${use.length>1?"s":""} in bold below (half sold higher, half lower).`:`None of the sales found were ${esc(d.condition)}.`} </small>
+    <div style="font-weight:600;margin-top:4px">Recent sales (eBay and others)</div>
     ${rows?`<div class="tablebox"><table><thead><tr><th style="padding:6px">Sold</th><th style="padding:6px">Condition</th><th style="padding:6px">Price</th><th style="padding:6px">Where</th></tr></thead><tbody>${rows}</tbody></table></div>`:""}
     ${d.note?`<small>${esc(d.note)}</small>`:""}
   </div>`;
