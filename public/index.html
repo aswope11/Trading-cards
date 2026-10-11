@@ -230,15 +230,17 @@ async function saveCard(c){
   return chk.card;
 }
 
+// a card's value = what you typed; if blank, the price from its last market check
+const valOf=c=>num(c.value)??(c.market&&!c.market.error?marketPick(c.market).mid:null);
 function render(){
   document.querySelectorAll("#people .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===person));
   const all=cards; const cards_=person?all.filter(c=>c.owner===person):all;
   return renderFor(cards_);
 }
 function renderFor(cards){
-  const both=cards.filter(c=>num(c.paid)!=null&&num(c.value)!=null);
-  const paid=cards.reduce((s,c)=>s+(num(c.paid)||0),0), val=cards.reduce((s,c)=>s+(num(c.value)||0),0);
-  const gain=both.reduce((s,c)=>s+num(c.value)-num(c.paid),0);
+  const both=cards.filter(c=>num(c.paid)!=null&&valOf(c)!=null);
+  const paid=cards.reduce((s,c)=>s+(num(c.paid)||0),0), val=cards.reduce((s,c)=>s+(valOf(c)||0),0);
+  const gain=both.reduce((s,c)=>s+valOf(c)-num(c.paid),0);
   $("tCards").textContent=cards.length;$("tRc").textContent=cards.filter(isRc).length;
   $("tPaid").textContent=$$(paid);$("tValue").textContent=$$(val);
   $("tGain").textContent=(gain>=0?"+":"−")+$$(Math.abs(gain)).slice(0);$("tGain").className=gain>=0?"up":"down";
@@ -251,12 +253,13 @@ function renderFor(cards){
     return true});
   list.sort((a,b)=>{let x=a[sortKey],y=b[sortKey];
     if(sortKey==="special"){x=specTags(a).join(" ");y=specTags(b).join(" ")}
-    if(sortKey==="paid"||sortKey==="value"){x=num(x)??-1;y=num(y)??-1;return (x-y)*sortDir}
+    if(sortKey==="value"){x=valOf(a)??-1;y=valOf(b)??-1;return (x-y)*sortDir}
+    if(sortKey==="paid"){x=num(x)??-1;y=num(y)??-1;return (x-y)*sortDir}
     return String(x??"").localeCompare(String(y??""))*sortDir});
   if(!cards.length){$("rows").innerHTML='<tr><td colspan="10" class="empty">No cards yet. Click <b>+ Add card</b>.</td></tr>';return}
   if(!list.length){$("rows").innerHTML='<tr><td colspan="10" class="empty">No cards match that filter.</td></tr>';return}
   $("rows").innerHTML=list.map(c=>{
-    const p=num(c.paid),v=num(c.value),d=p!=null&&v!=null?v-p:null;
+    const p=num(c.paid),v=valOf(c),d=p!=null&&v!=null?v-p:null;
     return `<tr class="row" data-id="${c.id}">
     <td>${c.photo?`<img class="thumb" loading="lazy" src="/api/photo?id=${c.photo}" data-big="${c.id}" alt="">`:'<div class="nothumb"></div>'}</td>
     <td class="player">${esc(c.player)||'<span class="muted">Not filled in yet</span>'}${c.team?`<div class="muted" style="font-weight:400;font-size:.85rem">${esc(c.team)}</div>`:""}</td>
@@ -355,12 +358,15 @@ function median(a){const s=[...a].sort((x,y)=>x-y),n=s.length;return n?(n%2?s[(n
 function marketPick(d){
   const cond=(d.condition||"raw").toLowerCase();
   const want=x=>cond.startsWith("raw")?/raw|ungraded/i.test(x.condition||"raw"):(x.condition||"").toLowerCase().replace(/\s+/g," ")===cond.replace(/\s+/g," ");
-  const use=d.comps.filter(want);
-  return {use,mid:median(use.map(x=>x.price))};
+  const use=(d.comps||[]).filter(want);
+  let mid=median(use.map(x=>x.price)),est=false;
+  // no sales at this exact condition: use the search's price for that grade (marked as an estimate)
+  if(mid==null){const k=(d.condition||"").replace(/\s+/g," ").trim();mid=cond.startsWith("raw")?d.rawPrice:(d.gradedPrices||{})[k];mid=typeof mid==="number"?mid:null;est=mid!=null}
+  return {use,mid,est};
 }
 function marketHtml(d){
   if(d.error)return `<div class="status">Market search failed${d.error==="no_key"?" (API key missing)":""}. Try again.</div>`;
-  const {use,mid}=marketPick(d);
+  const {use,mid,est}=marketPick(d);
   const g=d.gradedPrices||{};
   const rows=d.comps.map(x=>`<tr style="${use.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.date||"")}</td><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td>${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.source||"link")}</a>`:esc(x.source||"")}</td></tr>`).join("");
   // grade projections: PSA 10/9/8/7 + raw. Real sales at that grade win (middle price); otherwise the search's estimate.
@@ -375,8 +381,8 @@ function marketHtml(d){
     <div style="font-weight:600">Grade projections — what it's worth at each grade</div>
     <div class="scores">${tiers.map(tile).join("")}</div>
     <div style="font-weight:600;margin-top:4px">This card's value (${esc(d.condition)})</div>
-    <b>${mid!=null?f$(mid):"No matching sales"}</b>
-    <small>${mid!=null?`Middle price of the ${use.length} ${esc(d.condition)} sale${use.length>1?"s":""} in bold below (half sold higher, half lower).`:`None of the sales found were ${esc(d.condition)}.`} </small>
+    <b>${mid!=null?f$(mid):"No price found"}</b>
+    <small>${est?`No ${esc(d.condition)} sales found, so this is the search's estimate for ${esc(d.condition)}.`:mid!=null?`Middle price of the ${use.length} ${esc(d.condition)} sale${use.length>1?"s":""} in bold below (half sold higher, half lower).`:`None of the sales found were ${esc(d.condition)}.`} </small>
     <div style="font-weight:600;margin-top:4px">Recent sales (eBay and others)</div>
     ${rows?`<div class="tablebox"><table><thead><tr><th style="padding:6px">Sold</th><th style="padding:6px">Condition</th><th style="padding:6px">Price</th><th style="padding:6px">Where</th></tr></thead><tbody>${rows}</tbody></table></div>`:""}
     ${d.note?`<small>${esc(d.note)}</small>`:""}
