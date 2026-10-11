@@ -57,6 +57,29 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
 .actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between}
 .big{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;place-items:center;z-index:9;cursor:zoom-out}
 .big img{max-width:92vw;max-height:88vh;border-radius:6px}@media(min-width:800px){.big img{max-width:45vw}}
+
+/* grade check */
+#gdlg{width:min(900px,calc(100% - 16px))}
+.stage{position:relative;display:inline-block;max-width:100%;touch-action:none;user-select:none}
+.stage img{display:block;max-width:100%;max-height:62vh;border-radius:4px}
+.ln{position:absolute;z-index:2}
+.ln.v{top:0;bottom:0;width:22px;margin-left:-11px;cursor:ew-resize}
+.ln.h{left:0;right:0;height:22px;margin-top:-11px;cursor:ns-resize}
+.ln::after{content:"";position:absolute;background:var(--c)}
+.ln.v::after{left:10px;top:0;bottom:0;width:2px}
+.ln.h::after{top:10px;left:0;right:0;height:2px}
+.ln.o{--c:#CE1126}.ln.i{--c:#6CACE4}
+.ln span{position:absolute;font-size:.7rem;font-weight:700;background:var(--c);color:#fff;padding:1px 4px;border-radius:3px;white-space:nowrap}
+.ln.v span{top:2px;left:12px}.ln.h span{left:2px;top:12px}
+.corners{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.corners figure{margin:0;display:grid;gap:2px;font-size:.75rem;color:var(--muted);text-align:center}
+.corners canvas{width:100%;aspect-ratio:1;border:1px solid var(--line);border-radius:4px;background:#000}
+.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.score{border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.score b{display:block;font-family:var(--display);font-size:1.6rem}
+.score small{color:var(--muted);font-size:.78rem}
+.verdict{border:2px solid var(--red);border-radius:8px;padding:10px 12px}
+.verdict b{font-family:var(--display);font-size:2rem;color:var(--red)}
 </style>
 </head>
 <body>
@@ -119,6 +142,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <div class="slot"><label>Back photo<input type="file" id="pFile_back" accept="image/*"></label><img id="pPreview_back" alt="" hidden><button type="button" class="btn ghost" id="pRemove_back" hidden>Remove back</button></div>
     </div>
     <div id="readMsg" class="status"></div>
+    <button type="button" class="btn ghost" id="gradeBtn">Grade check — measure centering, zoom corners</button>
     <div class="grid">
       <label>Whose card<select name="owner"><option>Dad</option><option>Shep</option><option>Bubba</option><option>McClainey</option></select></label>
       <label>Player(s)<input name="player" placeholder="Junior Caminero / Elly De La Cruz"></label>
@@ -147,6 +171,21 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <button type="submit" class="btn" id="saveBtn">Save</button>
     </div>
   </form>
+</dialog>
+<dialog id="gdlg">
+  <div class="dlg">
+    <h2>Grade check</h2>
+    <div class="bar"><button type="button" class="chip" data-side="front" aria-pressed="true">Front</button><button type="button" class="chip" data-side="back" aria-pressed="false">Back</button></div>
+    <div class="help">Drag the <b style="color:#CE1126">red lines</b> onto the card's outside edges and the <b style="color:#6CACE4">blue lines</b> onto the inside of the border. Centering is measured from where you put them.</div>
+    <div style="text-align:center"><div class="stage" id="stage"><img id="gImg" alt=""></div></div>
+    <div class="scores" id="centerOut"></div>
+    <div class="help" style="font-weight:600">Corners, zoomed in from your photo</div>
+    <div class="corners" id="cornerBox"></div>
+    <div class="scores" id="aiOut"><div class="status">Scoring corners, edges and surface…</div></div>
+    <div class="verdict" id="verdict" hidden></div>
+    <div class="help">How the estimate works: it takes the LOWEST of centering, corners, edges and surface, because one bad corner or an off-center card pulls the whole grade down. Centering limits are PSA's (front 55/45 for a 10, 60/40 for a 9, 65/35 for an 8, 70/30 for a 7, 80/20 for a 6, 85/15 for a 5–4, 90/10 for a 3; back 75/25 for a 10, 90/10 for 9 and below). This is a guess from a phone photo, not a real grade.</div>
+    <div class="actions"><span style="flex:1"></span><button type="button" class="btn ghost" id="gClose">Close</button><button type="button" class="btn" id="gUse" disabled>Use this guesstimate</button></div>
+  </div>
 </dialog>
 <div class="big" id="big"><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center"><img id="bigImg" alt=""><img id="bigImg2" alt="" hidden></div></div>
 
@@ -309,6 +348,96 @@ $("csvBtn").onclick=()=>{const cols=["owner","player","team","sport","year","set
   const csv=[cols.join(","),...cards.map(c=>cols.map(k=>`"${String(c[k]??"").replace(/"/g,'""')}"`).join(","))].join("\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="card-collection.csv";a.click()};
 load();
+
+// ---------- Grade check ----------
+const PSA_C=[[10,55,75],[9,60,90],[8,65,90],[7,70,90],[6,80,90],[5,85,90],[4,85,90],[3,90,90]];
+let G={side:"front",lines:{},ai:null,imgs:{}};
+const photoSrc=side=>pending[side]?URL.createObjectURL(pending[side]):(editing&&editing[SIDE[side]]?"/api/photo?id="+editing[SIDE[side]]:"");
+async function photoB64(side){
+  if(pending[side])return toB64(pending[side]);
+  const id=editing&&editing[SIDE[side]];if(!id)return null;
+  return toB64(await (await fetch("/api/photo?id="+id)).blob());
+}
+const defLines=()=>({outer:{l:.08,r:.92,t:.06,b:.94},inner:{l:.14,r:.86,t:.11,b:.89}});
+function centerCap(worse,side){for(const [g,f,bk] of PSA_C){if(worse<=(side==="front"?f:bk))return g}return 2}
+function measure(side){
+  const {outer:o,inner:i}=G.lines[side];
+  const L=i.l-o.l,R=o.r-i.r,T=i.t-o.t,B=o.b-i.b;
+  const pair=(a,b)=>{const t=Math.max(a,0)+Math.max(b,0)||1;const x=Math.round(Math.max(a,0)/t*100);return [x,100-x]};
+  const lr=pair(L,R),tb=pair(T,B);
+  const worse=Math.max(...lr,...tb);
+  return {lr,tb,worse,cap:centerCap(worse,side)};
+}
+function drawLines(){
+  const st=$("stage");st.querySelectorAll(".ln").forEach(e=>e.remove());
+  const L=G.lines[G.side];
+  for(const kind of ["outer","inner"])for(const k of ["l","r","t","b"]){
+    const d=document.createElement("div");const v=k==="l"||k==="r";
+    d.className=`ln ${v?"v":"h"} ${kind==="outer"?"o":"i"}`;
+    d.style[v?"left":"top"]=(L[kind][k]*100)+"%";
+    d.innerHTML=`<span>${kind==="outer"?"edge":"border"}</span>`;
+    d.onpointerdown=e=>{e.preventDefault();d.setPointerCapture(e.pointerId);
+      d.onpointermove=ev=>{const r=st.getBoundingClientRect();
+        let f=v?(ev.clientX-r.left)/r.width:(ev.clientY-r.top)/r.height;f=Math.min(1,Math.max(0,f));
+        L[kind][k]=f;d.style[v?"left":"top"]=(f*100)+"%";showCentering()};
+      d.onpointerup=()=>{d.onpointermove=null;drawCorners()}};
+    st.appendChild(d);
+  }
+}
+function showCentering(){
+  const m=measure(G.side);
+  $("centerOut").innerHTML=`<div class="score"><small>Left / Right</small><b>${m.lr[0]}/${m.lr[1]}</b></div>
+   <div class="score"><small>Top / Bottom</small><b>${m.tb[0]}/${m.tb[1]}</b></div>
+   <div class="score"><small>${G.side==="front"?"Front":"Back"} centering allows up to</small><b>PSA ${m.cap}</b></div>`;
+  showVerdict();
+}
+function drawCorners(){
+  const img=$("gImg"),o=G.lines[G.side].outer,W=img.naturalWidth,H=img.naturalHeight;
+  if(!W)return;
+  const size=Math.max(40,(o.r-o.l)*W*.22);
+  const pts=[["Top left",o.l,o.t],["Top right",o.r,o.t],["Bottom left",o.l,o.b],["Bottom right",o.r,o.b]];
+  $("cornerBox").innerHTML=pts.map(p=>`<figure><canvas width="240" height="240"></canvas><figcaption>${p[0]}</figcaption></figure>`).join("");
+  $("cornerBox").querySelectorAll("canvas").forEach((cv,n)=>{const [,x,y]=pts[n];
+    cv.getContext("2d").drawImage(img,x*W-size/2,y*H-size/2,size,size,0,0,240,240)});
+}
+function showVerdict(){
+  const a=G.ai;if(!a||a.error){$("verdict").hidden=true;$("gUse").disabled=true;return}
+  const f=G.lines.front?measure("front"):null,b=G.lines.back?measure("back"):null;
+  const cen=Math.min(f?f.cap:10,b?b.cap:10);
+  const est=Math.floor(Math.min(cen,a.corners,a.edges,a.surface));
+  const why=[["centering",cen],["corners",a.corners],["edges",a.edges],["surface",a.surface]].filter(x=>Math.floor(x[1])===est).map(x=>x[0]).join(" + ");
+  G.text=`PSA ${est} (centering ${f?f.lr.join("/")+" L/R, "+f.tb.join("/")+" T/B":"not measured"} · corners ${a.corners} · edges ${a.edges} · surface ${a.surface})`;
+  $("verdict").hidden=false;
+  $("verdict").innerHTML=`Estimated grade <b>PSA ${est}</b><div class="help">Held down by: ${why}.${a.photoOk===false?" Photo isn't clear enough to trust this — "+esc(a.photoNote||"retake without glare, out of the holder"):""}</div>`;
+  $("gUse").disabled=false;
+}
+async function loadSide(side){
+  G.side=side;document.querySelectorAll("#gdlg [data-side]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.side===side));
+  const src=photoSrc(side);const img=$("gImg");
+  if(!src){img.removeAttribute("src");$("cornerBox").innerHTML='<div class="status">No '+side+' photo on this card.</div>';$("centerOut").innerHTML="";$("stage").querySelectorAll(".ln").forEach(e=>e.remove());return}
+  G.lines[side]=G.lines[side]||defLines();
+  img.onload=()=>{drawLines();showCentering();drawCorners()};img.src=src;
+}
+$("gradeBtn").onclick=async()=>{
+  if(!photoSrc("front")){alert("Add a front photo first.");return}
+  G={side:"front",lines:{},ai:null};$("aiOut").innerHTML='<div class="status">Scoring corners, edges and surface…</div>';$("verdict").hidden=true;$("gUse").disabled=true;
+  $("gdlg").showModal();loadSide("front");
+  try{
+    const images=[await photoB64("front")];const bk=await photoB64("back");if(bk)images.push(bk);
+    const r=await fetch("/api/grade-card",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({images})});
+    const a=await r.json();G.ai=a;
+    if(a.error){$("aiOut").innerHTML='<div class="status">Couldn\'t score the photo'+(a.error==="no_key"?" (API key missing).":". Try a clearer photo.")+'</div>';return}
+    // AI's first guess at where the lines go (front only) — you fine-tune by dragging
+    const ok=x=>x&&[x.l,x.r,x.t,x.b].every(v=>typeof v==="number"&&v>=0&&v<=1)&&x.l<x.r&&x.t<x.b;
+    if(ok(a.outer)&&ok(a.inner)){G.lines.front={outer:a.outer,inner:a.inner};if(G.side==="front")loadSide("front")}
+    const sc=(n,v,note)=>`<div class="score"><small>${n}</small><b>${v}</b><small>${esc(note||"")}</small></div>`;
+    $("aiOut").innerHTML=sc("Corners",a.corners,a.cornersNote)+sc("Edges",a.edges,a.edgesNote)+sc("Surface",a.surface,a.surfaceNote);
+    showVerdict();
+  }catch(e){$("aiOut").innerHTML='<div class="status">Couldn\'t score the photo. Try again.</div>'}
+};
+document.querySelectorAll("#gdlg [data-side]").forEach(b=>b.onclick=()=>loadSide(b.dataset.side));
+$("gClose").onclick=()=>$("gdlg").close();
+$("gUse").onclick=()=>{const f=$("form");f.elements.guess.value=G.text;$("gdlg").close()};
 </script>
 </body>
 </html>
