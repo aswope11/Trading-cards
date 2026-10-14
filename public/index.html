@@ -306,7 +306,7 @@ async function readCard(){
     const r=await fetch("/api/read-card",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({images})});
     const d=await r.json();
     if(d.error==="no_key"){msg.textContent="Card reading isn't set up yet (API key missing in Netlify).";return}
-    if(!r.ok||d.error){msg.textContent="Couldn't read the card. Fill it in by hand.";return}
+    if(!r.ok||d.error){msg.textContent="Couldn't read the card — "+(d.detail||d.error||("server said "+r.status))+". Fill it in by hand.";return}
     const f=$("form");let n=0;
     for(const k of ["player","team","sport","year","set","cardNo","rookie","numbered","auto","patch","graded","gradeCo","gradeNum","guess","notes"]){
       const el=f.elements[k];if(!el||d[k]==null||d[k]==="")continue;
@@ -529,7 +529,7 @@ $("gradeBtn").onclick=async()=>{
     const images=[await photoB64("front")];const bk=await photoB64("back");if(bk)images.push(bk);
     const r=await fetch("/api/grade-card",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({images})});
     const a=await r.json();G.ai=a;
-    if(a.error){$("aiOut").innerHTML='<div class="status">Couldn\'t score the photo'+(a.error==="no_key"?" (API key missing).":". Try a clearer photo.")+'</div>';return}
+    if(a.error){$("aiOut").innerHTML='<div class="status">Couldn\'t score the photo — '+esc(a.detail||a.error)+'</div>';return}
     // AI's first guess at where the lines go (front only) — you fine-tune by dragging
     const ok=x=>x&&[x.l,x.r,x.t,x.b].every(v=>typeof v==="number"&&v>=0&&v<=1)&&x.l<x.r&&x.t<x.b;
     if(ok(a.outer)&&ok(a.inner)&&!(G.auto&&G.auto.front)){G.lines.front={outer:a.outer,inner:a.inner};if(G.side==="front")loadSide("front")}
