@@ -158,7 +158,8 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <label>Year<input name="year" placeholder="2025"></label>
       <label>Set / Parallel<input name="set" placeholder="Bowman Chrome – International Impact"></label>
       <label>Card #<input name="cardNo"></label>
-      <label>Rookie<select name="rookie"><option>No</option><option>Yes</option></select><span class="help">Yes only if the card has the RC logo</span></label>
+      <label>Rookie card (RC logo)<select name="rookie"><option>No</option><option>Yes</option></select><span class="help">Yes only if the card has the RC logo</span></label>
+      <label>Rookie year<select name="rookieYear"><option>No</option><option>Yes</option></select><span class="help">Even without the RC logo or a patch, a card from the player's rookie year is still a rookie-year card — better than not.</span></label>
       <label>Numbered<input name="numbered" placeholder="23/99 — blank if not"></label>
       <label>Auto<select name="auto"><option>No</option><option>Yes</option></select></label>
       <label>Patch<select name="patch"><option>No</option><option>Yes</option></select></label>
@@ -267,7 +268,7 @@ function renderFor(cards){
     <td class="player">${esc(c.player)||'<span class="muted">Not filled in yet</span>'}${c.team?`<div class="muted" style="font-weight:400;font-size:.85rem">${esc(c.team)}</div>`:""}</td>
     <td>${esc(c.sport)}</td><td>${esc(c.year)}</td>
     <td>${esc(c.set)}${c.cardNo?` <span class="muted">#${esc(c.cardNo)}</span>`:""}</td>
-    <td>${isRc(c)?'<span class="tag rc">RC</span>':'<span class="muted">No</span>'}</td>
+    <td>${isRc(c)?'<span class="tag rc">RC</span>':c.rookieYear==="Yes"?'<span class="tag foil" title="Rookie year, no RC logo">Rookie yr</span>':'<span class="muted">No</span>'}</td>
     <td>${c.numbered?`<span class="tag foil">${esc(c.numbered)}</span>`:'<span class="muted">—</span>'}</td>
     <td>${specTags(c).length?specTags(c).map(t=>`<span class="tag ${t==="Auto"||t==="Patch"?"spec":"grd"}">${esc(t)}</span>`).join(" "):'<span class="muted">—</span>'}${!isGraded(c)&&c.guess?`<div class="muted" style="font-size:.8rem">Guess: ${esc(c.guess)}</div>`:""}</td>
     <td class="money">${$$(p)}</td>
@@ -315,7 +316,7 @@ async function readCard(){
     if(d.error==="no_key"){msg.textContent="Card reading isn't set up yet (API key missing in Netlify).";return}
     if(!r.ok||d.error){msg.textContent="Couldn't read the card — "+(d.detail||d.error||("server said "+r.status))+". Fill it in by hand.";return}
     const f=$("form");let n=0;
-    for(const k of ["player","team","sport","year","set","cardNo","rookie","numbered","auto","patch","graded","gradeCo","gradeNum","guess","notes"]){
+    for(const k of ["player","team","sport","year","set","cardNo","rookie","rookieYear","numbered","auto","patch","graded","gradeCo","gradeNum","guess","notes"]){
       const el=f.elements[k];if(!el||d[k]==null||d[k]==="")continue;
       if(el.tagName==="SELECT"){if(k!=="sport"&&el.selectedIndex>0)continue;if(k==="sport"&&editing&&editing.sport)continue;if([...el.options].some(o=>o.value===d[k])){el.value=d[k];n++}}
       else if(!el.value){el.value=d[k];n++}
@@ -440,7 +441,7 @@ $("big").onclick=()=>$("big").style.display="none";
 document.querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll(".chip[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b));render()});
 document.querySelectorAll("th button").forEach(b=>b.onclick=()=>{const k=b.dataset.s;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=1}render()});
 $("search").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};
-$("csvBtn").onclick=()=>{const cols=["owner","player","team","sport","year","set","cardNo","rookie","numbered","auto","patch","graded","gradeCo","gradeNum","guess","paid","value","acquired","notes"];
+$("csvBtn").onclick=()=>{const cols=["owner","player","team","sport","year","set","cardNo","rookie","rookieYear","numbered","auto","patch","graded","gradeCo","gradeNum","guess","paid","value","acquired","notes"];
   const csv=[cols.join(","),...cards.map(c=>cols.map(k=>`"${String(c[k]??"").replace(/"/g,'""')}"`).join(","))].join("\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="card-collection.csv";a.click()};
 load();

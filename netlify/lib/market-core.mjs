@@ -50,6 +50,7 @@ Grade to price: ${grade}${grade === "raw" ? " (ungraded)" : ""}
 Search eBay (sold AND active listings), 130point, SportsCardsPro, Card Ladder, PSA auction prices. Match the exact parallel/insert and serial numbering — a base card is not the same as a parallel.
 - "comps": real COMPLETED sales only (newest first, ideally last 90 days), up to 12, include ${grade} sales first, plus raw and PSA 10/9/8/7 when they exist.
 - "listings": ACTIVE buy-it-now listings right now (not sold), up to 8, ${grade} first, lowest price first.
+- If this exact parallel/serial has NO sales and NO listings (rare numbered cards often don't), ALSO include sales and listings of the SAME card in the base version or the most common parallels, and label each one's "condition" like "PSA 9 (base)" or "raw (silver)" so it is clear it's a different parallel. Fill gradedPrices from those as a floor (a /49 is worth at least the base). Never return everything empty if the base card trades.
 
 Reply with ONLY a JSON object, no other text:
 {"match":"the exact card you priced, in a few words",

@@ -3,12 +3,15 @@
 import { getStore } from "@netlify/blobs";
 import { searchCard, targetGrade, valueFor } from "../lib/market-core.mjs";
 export default async (req) => {
-  const recalc = (await req.text().catch(() => "")).includes("recalc");
+  const bodyTxt = await req.text().catch(() => "");
+  const recalc = bodyTxt.includes("recalc");
+  const onlyId = (bodyTxt.match(/^id=([a-z0-9-]+)$/i) || [])[1];
   const cards = getStore({ name: "cards", consistency: "strong" }), mk = getStore({ name: "market", consistency: "strong" });
   const key = Netlify.env.get("ANTHROPIC_API_KEY");
   const prev = (await mk.get("reprice-status", { type: "json" })) || {};
-  const runStart = prev.startedAt && !prev.finishedAt ? prev.startedAt : new Date().toISOString(); // unfinished run = pick up where it stopped
-  const { blobs } = await cards.list({ prefix: "card/" });
+  const runStart = !onlyId && prev.startedAt && !prev.finishedAt ? prev.startedAt : new Date().toISOString(); // unfinished run = pick up where it stopped
+  let { blobs } = await cards.list({ prefix: "card/" });
+  if (onlyId) blobs = blobs.filter((b) => b.key === "card/" + onlyId);
   const st = { running: true, startedAt: runStart, total: blobs.length, done: 0, failed: [], log: [] };
   const save = () => mk.setJSON("reprice-status", st);
   await save();
@@ -19,7 +22,7 @@ export default async (req) => {
       const b = queue.shift();
       const c = await cards.get(b.key, { type: "json" });
       if (!c) continue;
-      if (c.repricedAt && c.repricedAt >= runStart) { st.done++; continue; }
+      if (!onlyId && c.repricedAt && c.repricedAt >= runStart) { st.done++; continue; }
       let d;
       if (recalc && c.market && !c.market.error) { const g = targetGrade(c); const v = valueFor(c.market, g); d = { ...c.market, condition: g, value: v.value, how: v.how }; }
       else d = await searchCard(c, key);
