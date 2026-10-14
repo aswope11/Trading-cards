@@ -17,6 +17,21 @@ const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
 export function sameGrade(cond, grade) {
   return norm(grade).startsWith("raw") ? /raw|ungraded/i.test(cond || "raw") : norm(cond) === norm(grade);
 }
+export function priceCard(c, d) {
+  const grade = targetGrade(c);
+  const v = valueFor(d, grade);
+  const bumped = c.graded !== "Yes" && /^PSA/.test(grade);
+  if (bumped && !/^(lowest of|no .* sales · lowest listing)/.test(v.how)) {
+    // the +1 grade has no real sales or listings — use the guesstimate grade itself if IT has real ones
+    const gm = String(c.guess || "").match(/^\s*(?:PSA\s*)?(\d+(?:\.\d+)?)(?:\s*[-–]\s*(\d+(?:\.\d+)?))?/i);
+    if (gm) {
+      const own = "PSA " + Math.floor(Math.max(Number(gm[1]), gm[2] ? Number(gm[2]) : 0));
+      const w = valueFor(d, own);
+      if (/^(lowest of|no .* sales · lowest listing)/.test(w.how)) return { grade: own, value: w.value, how: `${grade} had no real sales or listings, so priced at the guesstimate grade ${own}: ${w.how}` };
+    }
+  }
+  return { grade, value: v.value, how: v.how };
+}
 export function valueFor(d, grade) {
   const sold = (d.comps || []).filter((x) => sameGrade(x.condition, grade) && x.price > 0);
   if (sold.length) { const v = Math.min(...sold.map((x) => x.price)); return { value: v, how: `lowest of ${sold.length} ${grade} sale${sold.length > 1 ? "s" : ""}` }; }
@@ -81,7 +96,7 @@ Reply with ONLY a JSON object, no other text:
     const d = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
     d.comps = (d.comps || []).filter((x) => typeof x.price === "number" && x.price > 0);
     d.listings = (d.listings || []).filter((x) => typeof x.price === "number" && x.price > 0);
-    const v = valueFor(d, grade);
-    return { ...d, searched: desc, condition: grade, value: v.value, how: v.how, checkedAt: new Date().toISOString() };
+    const v = priceCard(c, d);
+    return { ...d, searched: desc, condition: v.grade, value: v.value, how: v.how, checkedAt: new Date().toISOString() };
   } catch { return { error: "unreadable", condition: grade }; }
 }

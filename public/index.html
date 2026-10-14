@@ -382,10 +382,10 @@ function valueFor(d,g,deep){
     const r=valueFor(d,"raw",true);if(r.value!=null)return {...r,how:`nothing found for ${g} or any graded · raw (${r.how})`,kind:"near"}}
   return {value:null,how:`nothing found for ${g}`,kind:"none",rows:[]};
 }
-function marketPick(d){const v=valueFor(d,d.condition||"raw");return {use:v.rows,mid:v.value,est:v.kind==="est",how:v.how}}
+function marketPick(d){const v=valueFor(d,d.condition||"raw");if(typeof d.value==="number")return {use:v.rows,mid:d.value,est:v.kind==="est",how:d.how||v.how};return {use:v.rows,mid:v.value,est:v.kind==="est",how:v.how}}
 function marketHtml(d){
   if(d.error)return `<div class="status">Market search failed${d.error==="no_key"?" (API key missing)":""}. Try again.</div>`;
-  const v=valueFor(d,d.condition||"raw");
+  const v=valueFor(d,d.condition||"raw");if(typeof d.value==="number"){v.value=d.value;v.how=d.how||v.how}
   const link=x=>x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.source||"link")}</a>`:esc(x.source||"");
   const soldRows=(d.comps||[]).map(x=>`<tr style="${v.rows.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.date||"")}</td><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td>${link(x)}</td></tr>`).join("");
   const listRows=(d.listings||[]).map(x=>`<tr style="${v.rows.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td class="money">${f$(Math.round(x.price*90)/100)}</td><td>${link(x)}</td></tr>`).join("");

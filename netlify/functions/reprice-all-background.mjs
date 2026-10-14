@@ -1,7 +1,7 @@
 // Reprices EVERY card with the value rule and saves value + market check on each card.
 // Progress is written to market/reprice-status. Skips cards already repriced in this run (safe to restart).
 import { getStore } from "@netlify/blobs";
-import { searchCard, targetGrade, valueFor } from "../lib/market-core.mjs";
+import { searchCard, priceCard } from "../lib/market-core.mjs";
 export default async (req) => {
   const bodyTxt = await req.text().catch(() => "");
   const recalc = bodyTxt.includes("recalc");
@@ -24,7 +24,7 @@ export default async (req) => {
       if (!c) continue;
       if (!onlyId && c.repricedAt && c.repricedAt >= runStart) { st.done++; continue; }
       let d;
-      if (recalc && c.market && !c.market.error) { const g = targetGrade(c); const v = valueFor(c.market, g); d = { ...c.market, condition: g, value: v.value, how: v.how }; }
+      if (recalc && c.market && !c.market.error) { const v = priceCard(c, c.market); d = { ...c.market, condition: v.grade, value: v.value, how: v.how }; }
       else d = await searchCard(c, key);
       if (d.error) { st.failed.push(c.player || c.id); }
       else {
