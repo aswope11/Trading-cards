@@ -63,6 +63,7 @@ Card: ${desc}
 Grade to price: ${grade}${grade === "raw" ? " (ungraded)" : ""}
 Serial number on the card: ${c.numbered ? c.numbered : "NONE — this card is NOT serial-numbered. Price the unnumbered/base version. Never assume a /49, /99 etc. that is not printed on the card, even if the set name mentions a color."}
 
+RULE: the CARD NUMBER is the anchor. Only count sales/listings of the card with this exact number in this set. If the set name given does not have this card number for this player, the set name is wrong — find which set DOES have this player at this number (search e.g. "${c.year} ${c.player} #${c.cardNo}") and price THAT. Never substitute a different card number or a different insert. If the set is blank, identify it from the number.
 RULE: match only what is printed on the card or slab label. If the card is not serial-numbered, treat any color in the set name as the regular unnumbered version (or base) — do not upgrade it to a numbered parallel.
 Search eBay (sold AND active listings), 130point, SportsCardsPro, Card Ladder, PSA auction prices. Match the exact parallel/insert and serial numbering — a base card is not the same as a parallel.
 - "comps": real COMPLETED sales only (newest first, ideally last 90 days), up to 12, include ${grade} sales first, plus raw and PSA 10/9/8/7 when they exist.
