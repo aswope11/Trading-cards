@@ -6,7 +6,7 @@ export default async (req) => {
   const stale = st.running && st.startedAt && Date.now() - Date.parse(st.startedAt) > 16 * 60 * 1000;
   if (url.searchParams.get("go") === "1" && (!st.running || stale)) {
     if (stale) { st.running = false; await mk.setJSON("reprice-status", st); }
-    await fetch(url.origin + "/.netlify/functions/reprice-all-background", { method: "POST", body: "{}" });
+    await fetch(url.origin + "/.netlify/functions/reprice-all-background", { method: "POST", body: url.searchParams.get("recalc") ? "recalc" : "{}" });
     st = { running: true, starting: true };
   }
   return new Response(JSON.stringify(st), { headers: { "content-type": "application/json", "cache-control": "no-store" } });

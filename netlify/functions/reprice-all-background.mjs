@@ -1,8 +1,9 @@
 // Reprices EVERY card with the value rule and saves value + market check on each card.
 // Progress is written to market/reprice-status. Skips cards already repriced in this run (safe to restart).
 import { getStore } from "@netlify/blobs";
-import { searchCard } from "../lib/market-core.mjs";
-export default async () => {
+import { searchCard, targetGrade, valueFor } from "../lib/market-core.mjs";
+export default async (req) => {
+  const recalc = (await req.text().catch(() => "")).includes("recalc");
   const cards = getStore({ name: "cards", consistency: "strong" }), mk = getStore({ name: "market", consistency: "strong" });
   const key = Netlify.env.get("ANTHROPIC_API_KEY");
   const prev = (await mk.get("reprice-status", { type: "json" })) || {};
@@ -19,7 +20,9 @@ export default async () => {
       const c = await cards.get(b.key, { type: "json" });
       if (!c) continue;
       if (c.repricedAt && c.repricedAt >= runStart) { st.done++; continue; }
-      const d = await searchCard(c, key);
+      let d;
+      if (recalc && c.market && !c.market.error) { const g = targetGrade(c); const v = valueFor(c.market, g); d = { ...c.market, condition: g, value: v.value, how: v.how }; }
+      else d = await searchCard(c, key);
       if (d.error) { st.failed.push(c.player || c.id); }
       else {
         c.market = d; c.value = d.value != null ? d.value.toFixed(2) : c.value; c.repricedAt = new Date().toISOString();

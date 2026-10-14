@@ -24,6 +24,16 @@ export function valueFor(d, grade) {
   if (listed.length) { const lo = Math.min(...listed.map((x) => x.price)); return { value: Math.round(lo * 0.9 * 100) / 100, how: `no ${grade} sales · lowest listing $${lo.toFixed(2)} × 90%` }; }
   const est = norm(grade).startsWith("raw") ? d.rawPrice : (d.gradedPrices || {})[grade];
   if (typeof est === "number") return { value: est, how: `no ${grade} sales or listings · search's estimate` };
+  // nothing at this grade at all: use the NEAREST LOWER grade that has data (never price up), then raw
+  const gm = String(grade).match(/(\d+(?:\.\d+)?)/);
+  if (gm) {
+    for (let g = Math.floor(Number(gm[1])) - 1; g >= 1; g--) {
+      const r = valueFor(d, "PSA " + g);
+      if (r.value != null && !/nothing found/.test(r.how)) return { value: r.value, how: `nothing found for ${grade} · using nearest lower grade PSA ${g} (${r.how})` };
+    }
+    const r = valueFor(d, "raw");
+    if (r.value != null && !/nothing found/.test(r.how)) return { value: r.value, how: `nothing found for ${grade} or any graded · using raw (${r.how})` };
+  }
   return { value: null, how: `nothing found for ${grade}` };
 }
 export function describe(c) {

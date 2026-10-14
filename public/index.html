@@ -368,13 +368,18 @@ function median(a){const s=[...a].sort((x,y)=>x-y),n=s.length;return n?(n%2?s[(n
 // price = LOWEST sold at that grade -> else 90% of LOWEST listing -> else the search's estimate.
 const normG=x=>String(x||"").toLowerCase().replace(/\s+/g," ").trim();
 const sameG=(cond,g)=>normG(g).startsWith("raw")?/raw|ungraded/i.test(cond||"raw"):normG(cond)===normG(g);
-function valueFor(d,g){
+function valueFor(d,g,deep){
   const sold=(d.comps||[]).filter(x=>sameG(x.condition,g)&&x.price>0);
   if(sold.length)return {value:Math.min(...sold.map(x=>x.price)),how:`lowest of ${sold.length} ${g} sale${sold.length>1?"s":""}`,kind:"sold",rows:sold};
   const lst=(d.listings||[]).filter(x=>sameG(x.condition,g)&&x.price>0);
   if(lst.length){const lo=Math.min(...lst.map(x=>x.price));return {value:Math.round(lo*90)/100,how:`no ${g} sales · lowest listing ${f$(lo)} × 90%`,kind:"list",rows:lst}}
   const est=normG(g).startsWith("raw")?d.rawPrice:(d.gradedPrices||{})[g];
-  return typeof est==="number"?{value:est,how:`no ${g} sales or listings · search's estimate`,kind:"est",rows:[]}:{value:null,how:`nothing found for ${g}`,kind:"none",rows:[]};
+  if(typeof est==="number")return {value:est,how:`no ${g} sales or listings · search's estimate`,kind:"est",rows:[]};
+  // nothing at this grade: nearest LOWER grade with data, then raw (never price up)
+  const gm=String(g).match(/(\d+(?:\.\d+)?)/);
+  if(gm&&!deep){for(let k=Math.floor(+gm[1])-1;k>=1;k--){const r=valueFor(d,"PSA "+k,true);if(r.value!=null)return {...r,how:`nothing found for ${g} · nearest lower grade PSA ${k} (${r.how})`,kind:"near"}}
+    const r=valueFor(d,"raw",true);if(r.value!=null)return {...r,how:`nothing found for ${g} or any graded · raw (${r.how})`,kind:"near"}}
+  return {value:null,how:`nothing found for ${g}`,kind:"none",rows:[]};
 }
 function marketPick(d){const v=valueFor(d,d.condition||"raw");return {use:v.rows,mid:v.value,est:v.kind==="est",how:v.how}}
 function marketHtml(d){
@@ -385,7 +390,7 @@ function marketHtml(d){
   const listRows=(d.listings||[]).map(x=>`<tr style="${v.rows.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td class="money">${f$(Math.round(x.price*90)/100)}</td><td>${link(x)}</td></tr>`).join("");
   const tiers=["PSA 10","PSA 9","PSA 8","PSA 7","raw"];
   const tile=t=>{const r=valueFor(d,t);const hit=normG(t)===normG(d.condition);
-    return `<div class="score" style="${hit?"border:2px solid var(--red)":""}"><small>${t==="raw"?"Raw":t}${hit?" · priced as":""}</small><b>${f$(r.value)}</b><small>${r.kind==="sold"?"lowest sale":r.kind==="list"?"90% of lowest listing":r.kind==="est"?"estimate":"no data"}</small></div>`};
+    return `<div class="score" style="${hit?"border:2px solid var(--red)":""}"><small>${t==="raw"?"Raw":t}${hit?" · priced as":""}</small><b>${f$(r.value)}</b><small>${r.kind==="sold"?"lowest sale":r.kind==="list"?"90% of lowest listing":r.kind==="est"?"estimate":r.kind==="near"?"from a lower grade":"no data"}</small></div>`};
   const th=h=>`<th style="padding:6px">${h}</th>`;
   return `<div class="score" style="display:grid;gap:6px">
     <small>Market check ${d.checkedAt?new Date(d.checkedAt).toLocaleDateString():""} · matched: ${esc(d.match||d.searched||"")} · confidence ${esc(d.confidence||"?")} · trend ${esc(d.trend||"?")}</small>
