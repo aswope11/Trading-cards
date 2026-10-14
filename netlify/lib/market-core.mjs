@@ -46,7 +46,9 @@ export async function searchCard(c, key) {
   const prompt = `Today is ${today}. Price this exact sports card from the live market:
 Card: ${desc}
 Grade to price: ${grade}${grade === "raw" ? " (ungraded)" : ""}
+Serial number on the card: ${c.numbered ? c.numbered : "NONE — this card is NOT serial-numbered. Price the unnumbered/base version. Never assume a /49, /99 etc. that is not printed on the card, even if the set name mentions a color."}
 
+RULE: match only what is printed on the card or slab label. If the card is not serial-numbered, treat any color in the set name as the regular unnumbered version (or base) — do not upgrade it to a numbered parallel.
 Search eBay (sold AND active listings), 130point, SportsCardsPro, Card Ladder, PSA auction prices. Match the exact parallel/insert and serial numbering — a base card is not the same as a parallel.
 - "comps": real COMPLETED sales only (newest first, ideally last 90 days), up to 12, include ${grade} sales first, plus raw and PSA 10/9/8/7 when they exist.
 - "listings": ACTIVE buy-it-now listings right now (not sold), up to 8, ${grade} first, lowest price first.
