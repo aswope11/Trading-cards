@@ -148,6 +148,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <div class="slot"><label>Back photo<input type="file" id="pFile_back" accept="image/*"></label><img id="pPreview_back" alt="" hidden><button type="button" class="btn ghost" id="pRemove_back" hidden>Remove back</button></div>
     </div>
     <div id="readMsg" class="status"></div>
+    <button type="button" class="btn ghost" id="refillBtn">Fill in from the photos</button>
     <button type="button" class="btn ghost" id="gradeBtn">Grade check — measure centering, zoom corners</button>
     <div class="grid">
       <label>Whose card<select name="owner"><option>Dad</option><option>Shep</option><option>Bubba</option><option>McClainey</option></select></label>
@@ -301,8 +302,8 @@ const toB64=blob=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.r
 async function readCard(){
   const msg=$("readMsg");msg.textContent="Reading the card…";
   try{
-    const images=[];for(const side of ["front","back"])if(pending[side])images.push(await toB64(pending[side]));
-    if(!images.length)return;
+    const images=[];for(const side of ["front","back"]){const b=await photoB64(side);if(b)images.push(b)}
+    if(!images.length){msg.textContent="Add a photo first.";return}
     const r=await fetch("/api/read-card",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({images})});
     const d=await r.json();
     if(d.error==="no_key"){msg.textContent="Card reading isn't set up yet (API key missing in Netlify).";return}
@@ -521,6 +522,7 @@ async function loadSide(side){
   };
   raw.onerror=()=>{img.src=src};raw.src=src;
 }
+$("refillBtn").onclick=()=>readCard();
 $("gradeBtn").onclick=async()=>{
   if(!photoSrc("front")){alert("Add a front photo first.");return}
   G={side:"front",lines:{},ai:null};$("aiOut").innerHTML='<div class="status">Scoring corners, edges and surface…</div>';$("verdict").hidden=true;$("gUse").disabled=true;
