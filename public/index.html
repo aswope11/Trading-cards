@@ -311,7 +311,7 @@ async function readCard(){
     const f=$("form");let n=0;
     for(const k of ["player","team","sport","year","set","cardNo","rookie","numbered","auto","patch","graded","gradeCo","gradeNum","guess","notes"]){
       const el=f.elements[k];if(!el||d[k]==null||d[k]==="")continue;
-      if(el.tagName==="SELECT"){if(editing&&editing[k])continue;if([...el.options].some(o=>o.value===d[k])){el.value=d[k];n++}}
+      if(el.tagName==="SELECT"){if(k!=="sport"&&el.selectedIndex>0)continue;if(k==="sport"&&editing&&editing.sport)continue;if([...el.options].some(o=>o.value===d[k])){el.value=d[k];n++}}
       else if(!el.value){el.value=d[k];n++}
     }
     showGraded();
