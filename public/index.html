@@ -454,10 +454,12 @@ function centerCap(worse,side){for(const [g,f,bk] of PSA_C){if(worse<=(side==="f
 function measure(side){
   const {outer:o,inner:i}=G.lines[side];
   const L=i.l-o.l,R=o.r-i.r,T=i.t-o.t,B=o.b-i.b;
+  // a border thinner than 1% of the card means that line is sitting on the edge — not a real measurement
+  const bad=[L,R,T,B].some(v=>v<0.01);
   const pair=(a,b)=>{const t=Math.max(a,0)+Math.max(b,0)||1;const x=Math.round(Math.max(a,0)/t*100);return [x,100-x]};
   const lr=pair(L,R),tb=pair(T,B);
   const worse=Math.max(...lr,...tb);
-  return {lr,tb,worse,cap:centerCap(worse,side)};
+  return {lr,tb,worse,bad,cap:bad?10:centerCap(worse,side)};
 }
 function drawLines(){
   const st=$("stage");st.querySelectorAll(".ln").forEach(e=>e.remove());
@@ -483,7 +485,7 @@ function showCentering(){
   const m=measure(G.side);
   $("centerOut").innerHTML=`<div class="score"><small>Left / Right</small><b>${m.lr[0]}/${m.lr[1]}</b></div>
    <div class="score"><small>Top / Bottom</small><b>${m.tb[0]}/${m.tb[1]}</b></div>
-   <div class="score"><small>${G.side==="front"?"Front":"Back"} centering allows up to</small><b>PSA ${m.cap}</b></div>`;
+   <div class="score"${m.bad?' style="border:2px solid var(--red)"':""}><small>${G.side==="front"?"Front":"Back"} centering allows up to</small><b>${m.bad?"not measured":"PSA "+m.cap}</b>${m.bad?'<small>A blue line is on the card edge. Drag the blue lines onto the inside of the border.</small>':""}</div>`;
   showVerdict();
 }
 function drawCorners(){
@@ -498,12 +500,12 @@ function drawCorners(){
 function showVerdict(){
   const a=G.ai;if(!a||a.error){$("verdict").hidden=true;$("gUse").disabled=true;return}
   const f=G.lines.front?measure("front"):null,b=G.lines.back?measure("back"):null;
-  const cen=Math.min(f?f.cap:10,b?b.cap:10);
+  const cen=Math.min(f?f.cap:10,b?b.cap:10);const cenBad=(f&&f.bad)||(b&&b.bad);
   const est=Math.floor(Math.min(cen,a.corners,a.edges,a.surface));
   const why=[["centering",cen],["corners",a.corners],["edges",a.edges],["surface",a.surface]].filter(x=>Math.floor(x[1])===est).map(x=>x[0]).join(" + ");
-  G.text=`PSA ${est} (centering ${f?f.lr.join("/")+" L/R, "+f.tb.join("/")+" T/B":"not measured"} · corners ${a.corners} · edges ${a.edges} · surface ${a.surface})`;
+  G.text=`PSA ${est} (centering ${f&&!f.bad?f.lr.join("/")+" L/R, "+f.tb.join("/")+" T/B":"not measured"} · corners ${a.corners} · edges ${a.edges} · surface ${a.surface})`;
   $("verdict").hidden=false;
-  $("verdict").innerHTML=`Estimated grade <b>PSA ${est}</b><div class="help">Held down by: ${why}.${a.photoOk===false?" Photo isn't clear enough to trust this — "+esc(a.photoNote||"retake without glare, out of the holder"):""}</div>`;
+  $("verdict").innerHTML=`Estimated grade <b>PSA ${est}</b><div class="help">Held down by: ${why}.${cenBad?" Centering NOT counted — a blue line is on the card edge; fix the lines to include it.":""}${a.photoOk===false?" Photo isn't clear enough to trust this — "+esc(a.photoNote||"retake without glare, out of the holder"):""}</div>`;
   $("gUse").disabled=false;
 }
 async function loadSide(side){
@@ -540,7 +542,7 @@ $("gradeBtn").onclick=async()=>{
     if(a.error){$("aiOut").innerHTML='<div class="status">Couldn\'t score the photo — '+esc(a.detail||a.error)+'</div>';return}
     // AI's first guess at where the lines go (front only) — you fine-tune by dragging
     const ok=x=>x&&[x.l,x.r,x.t,x.b].every(v=>typeof v==="number"&&v>=0&&v<=1)&&x.l<x.r&&x.t<x.b;
-    if(ok(a.outer)&&ok(a.inner)&&!(G.auto&&G.auto.front)){G.lines.front={outer:a.outer,inner:a.inner};if(G.side==="front")loadSide("front")}
+    if(ok(a.outer)&&ok(a.inner)&&a.inner.l>a.outer.l&&a.inner.r<a.outer.r&&a.inner.t>a.outer.t&&a.inner.b<a.outer.b&&!(G.auto&&G.auto.front)){G.lines.front={outer:a.outer,inner:a.inner};if(G.side==="front")loadSide("front")}
     const sc=(n,v,note)=>`<div class="score"><small>${n}</small><b>${v}</b><small>${esc(note||"")}</small></div>`;
     $("aiOut").innerHTML=sc("Corners",a.corners,a.cornersNote)+sc("Edges",a.edges,a.edgesNote)+sc("Surface",a.surface,a.surfaceNote);
     showVerdict();
