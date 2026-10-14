@@ -171,7 +171,7 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
     </div>
     <div id="marketBox"></div>
     <label>Notes<textarea name="notes" rows="2"></textarea></label>
-    <label id="guessBox">Guesstimate — the app's opinion<input name="guess" placeholder="PSA 8-9"><span class="help">An assumption from the photo only (centering, corners, edges, surface). Not a real grade.</span></label>
+    <label id="guessBox">Guesstimate — the app's opinion<input name="guess" placeholder="PSA 8-9"><span class="help" id="guessHelp">An assumption from the photo only (centering, corners, edges, surface). Not a real grade.</span></label>
     <div class="actions">
       <button type="button" class="btn danger" id="delBtn" hidden>Delete card</button>
       <span style="flex:1"></span>
@@ -285,11 +285,17 @@ function openEditor(c){
   if(!c&&person)f.elements.owner.value=person;
   if(c)for(const el of f.elements)if(el.name&&c[el.name]!=null)el.value=c[el.name];
   for(const side of ["front","back"]){const id=c&&c[SIDE[side]];$("pPreview_"+side).hidden=!id;$("pRemove_"+side).hidden=!id;$("pFile_"+side).value="";if(id)$("pPreview_"+side).src="/api/photo?id="+id}
-  showGraded();
+  showGraded();showPricedAs();
   if(c&&c.market)$("marketBox").innerHTML=marketHtml(c.market);
   $("dlg").showModal();
 }
 // grading company + number only show for cards in a real slab
+// same rule as the server: price one grade above the guesstimate (a range uses the higher number)
+function pricedAs(f){if(f.elements.graded.value==="Yes")return (f.elements.gradeCo.value.replace(" (Beckett)","")+" "+f.elements.gradeNum.value).trim();
+  const m=String(f.elements.guess.value||"").match(/^\s*(?:PSA\s*)?(\d+(?:\.\d+)?)(?:\s*[-–]\s*(\d+(?:\.\d+)?))?/i);
+  return m?"PSA "+Math.min(10,Math.floor(Math.max(+m[1],m[2]?+m[2]:0))+1):"raw"}
+function showPricedAs(){const f=$("form");const g=pricedAs(f);$("guessHelp").textContent=(g==="raw"?"No guesstimate yet, so it would be priced raw.":`Priced as ${g} (one grade above the guesstimate).`)+" An assumption from the photo only. Not a real grade."}
+$("form").elements.guess.oninput=showPricedAs;
 function showGraded(){const on=$("gradedSel").value==="Yes";document.querySelectorAll(".gradedOnly").forEach(el=>el.hidden=!on);$("guessBox").hidden=on}
 $("gradedSel").onchange=showGraded;
 for(const side of ["front","back"]){
@@ -542,7 +548,7 @@ $("gradeBtn").onclick=async()=>{
 };
 document.querySelectorAll("#gdlg [data-side]").forEach(b=>b.onclick=()=>loadSide(b.dataset.side));
 $("gClose").onclick=()=>$("gdlg").close();
-$("gUse").onclick=()=>{const f=$("form");f.elements.guess.value=G.text;$("gdlg").close()};
+$("gUse").onclick=()=>{const f=$("form");f.elements.guess.value=G.text;showPricedAs();$("gdlg").close()};
 
 // magnifier: shows 4x the area right under your finger, with the line you're dragging, sitting above your finger
 function loupe(cx,cy,fx,fy,vertical,color){

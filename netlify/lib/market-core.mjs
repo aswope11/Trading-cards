@@ -8,8 +8,9 @@
 //                      neither -> the search's estimate for that grade (marked "estimate").
 export function targetGrade(c) {
   if (c.graded === "Yes") return `${(c.gradeCo || "PSA").replace(" (Beckett)", "")} ${c.gradeNum || ""}`.trim();
-  const nums = String(c.guess || "").match(/\d+(\.\d+)?/g);
-  if (nums) { const g = Math.min(10, Math.floor(Math.max(...nums.map(Number))) + 1); return "PSA " + g; }
+  // read ONLY the grade at the front of the guesstimate ("PSA 7" or "PSA 8-9"), never the centering numbers after it
+  const m = String(c.guess || "").match(/^\s*(?:PSA\s*)?(\d+(?:\.\d+)?)(?:\s*[-–]\s*(\d+(?:\.\d+)?))?/i);
+  if (m) { const top = Math.max(Number(m[1]), m[2] ? Number(m[2]) : 0); return "PSA " + Math.min(10, Math.floor(top) + 1); }
   return "raw";
 }
 const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
