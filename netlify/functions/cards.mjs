@@ -9,6 +9,15 @@ export default async (req) => {
   const okId = (x) => typeof x === "string" && /^[a-z0-9-]+$/i.test(x);
   try {
     if (req.method === "GET") {
+      // ?id=X&clearPrice=1 wipes a card's pricing (value + market search) but keeps everything else about the card
+      if (id && new URL(req.url).searchParams.get("clearPrice")) {
+        if (!okId(id)) return json({ error: "bad id" }, 400);
+        const c = await store.get("card/" + id, { type: "json" });
+        if (!c) return json({ error: "no such card" }, 404);
+        c.market = null; c.value = ""; c.repricedAt = null; c.savedAt = new Date().toISOString();
+        await store.setJSON("card/" + c.id, c);
+        return json({ ok: true, card: c });
+      }
       if (id) return json({ card: okId(id) ? await store.get("card/" + id, { type: "json" }) : null });
       let { blobs } = await store.list({ prefix: "card/" });
       if (!blobs.length) {
