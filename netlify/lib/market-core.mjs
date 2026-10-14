@@ -56,8 +56,52 @@ export function describe(c) {
     c.rookie === "Yes" ? "rookie card" : "", c.auto === "Yes" ? "autograph" : "", c.patch === "Yes" ? "patch" : ""].filter(Boolean).join(" ");
 }
 // one web search for this card: sold sales + active listings + price per grade
+// ---------- SportsCardsPro price guide (real per-grade prices, card-number anchored) ----------
+const SCP_GRADES = { raw: "loose-price", "PSA 7": "cib-price", "PSA 8": "new-price", "PSA 9": "graded-price", "PSA 9.5": "box-only-price", "PSA 10": "manual-only-price" };
+export async function scpLookup(c, token) {
+  if (!token) return null;
+  const q = [c.year, c.set, c.player, c.cardNo ? "#" + c.cardNo : ""].filter(Boolean).join(" ");
+  const r = await fetch("https://www.sportscardspro.com/api/products?t=" + encodeURIComponent(token) + "&q=" + encodeURIComponent(q));
+  const d = await r.json().catch(() => null);
+  if (!r.ok || !d || d.status !== "success" || !Array.isArray(d.products) || !d.products.length) return null;
+  const want = String(c.cardNo || "").trim().toLowerCase();
+  const num = (p) => { const m = String(p["product-name"] || "").match(/#\s*([A-Za-z0-9-]+)/); return m ? m[1].toLowerCase() : ""; };
+  const par = (p) => (String(p["product-name"] || "").match(/\[(.+?)\]/) || [])[1] || "";
+  const wantPar = (c.set || "").toLowerCase();
+  let list = d.products.filter((p) => String(p["product-name"] || "").toLowerCase().includes((c.player || "").split(" ").pop().toLowerCase()));
+  if (want) { const byNum = list.filter((p) => num(p) === want); if (byNum.length) list = byNum; else return null; }
+  // parallel: prefer one named in the set box; if the card is unnumbered and no parallel named, prefer the plain (no [bracket]) version
+  const named = list.filter((p) => par(p) && wantPar.includes(par(p).toLowerCase()));
+  const plain = list.filter((p) => !par(p));
+  const pick = (named[0]) || (!c.numbered && plain[0]) || list[0];
+  if (!pick) return null;
+  const $ = (k) => (typeof pick[k] === "number" && pick[k] > 0 ? pick[k] / 100 : null);
+  const gradedPrices = {}; for (const [g, k] of Object.entries(SCP_GRADES)) if (g !== "raw") gradedPrices[g] = $(k);
+  return { source: "SportsCardsPro", match: [pick["product-name"], pick["console-name"]].filter(Boolean).join(" — "), scpId: pick.id,
+    url: "https://www.sportscardspro.com/game/" + String(pick["console-name"] || "").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "/" + String(pick["product-name"] || "").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    rawPrice: $("loose-price"), gradedPrices, comps: [], listings: [], confidence: "high", trend: "unknown",
+    note: "Prices are SportsCardsPro's price guide (built from completed eBay sales) for this exact card number.", candidates: list.length };
+}
+export function priceFromGuide(c, d) {
+  const grade = targetGrade(c);
+  const get = (g) => (g === "raw" ? d.rawPrice : (d.gradedPrices || {})[g]);
+  let v = get(grade), how = `SportsCardsPro guide price for ${grade}`;
+  if (v == null) { // nearest lower grade, then raw — never price up
+    const gm = String(grade).match(/(\d+)/);
+    for (let g = gm ? Number(gm[1]) - 1 : 0; g >= 7 && v == null; g--) { v = get("PSA " + g); if (v != null) how = `no ${grade} guide price · nearest lower grade PSA ${g}`; }
+    if (v == null && d.rawPrice != null) { v = d.rawPrice; how = `no graded guide price for ${grade} · raw`; }
+  }
+  return { grade, value: v, how };
+}
 export async function searchCard(c, key) {
   const grade = targetGrade(c), desc = describe(c), today = new Date().toISOString().slice(0, 10);
+  const scpToken = typeof Netlify !== "undefined" ? Netlify.env.get("SPORTSCARDSPRO_TOKEN") : null;
+  if (scpToken) {
+    try {
+      const g = await scpLookup(c, scpToken);
+      if (g) { const v = priceFromGuide(c, g); return { ...g, searched: desc, condition: v.grade, value: v.value, how: v.how, checkedAt: new Date().toISOString() }; }
+    } catch (e) { /* fall through to the web search */ }
+  }
   const prompt = `Today is ${today}. Price this exact sports card from the live market:
 Card: ${desc}
 Grade to price: ${grade}${grade === "raw" ? " (ungraded)" : ""}

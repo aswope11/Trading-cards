@@ -391,10 +391,10 @@ function marketHtml(d){
   const listRows=(d.listings||[]).map(x=>`<tr style="${v.rows.includes(x)?"font-weight:600":"color:var(--muted)"}"><td>${esc(x.condition||"")}</td><td class="money">${f$(x.price)}</td><td class="money">${f$(Math.round(x.price*90)/100)}</td><td>${link(x)}</td></tr>`).join("");
   const tiers=["PSA 10","PSA 9","PSA 8","PSA 7","raw"];
   const tile=t=>{const r=valueFor(d,t);const hit=normG(t)===normG(d.condition);
-    return `<div class="score" style="${hit?"border:2px solid var(--red)":""}"><small>${t==="raw"?"Raw":t}${hit?" · priced as":""}</small><b>${f$(r.value)}</b><small>${r.kind==="sold"?"lowest sale":r.kind==="list"?"90% of lowest listing":r.kind==="est"?"estimate":r.kind==="near"?"from a lower grade":"no data"}</small></div>`};
+    return `<div class="score" style="${hit?"border:2px solid var(--red)":""}"><small>${t==="raw"?"Raw":t}${hit?" · priced as":""}</small><b>${f$(r.value)}</b><small>${r.kind==="sold"?"lowest sale":r.kind==="list"?"90% of lowest listing":r.kind==="est"?(d.source==="SportsCardsPro"?"price guide":"estimate"):r.kind==="near"?"from a lower grade":"no data"}</small></div>`};
   const th=h=>`<th style="padding:6px">${h}</th>`;
   return `<div class="score" style="display:grid;gap:6px">
-    <small>Market check ${d.checkedAt?new Date(d.checkedAt).toLocaleDateString():""} · matched: ${esc(d.match||d.searched||"")} · confidence ${esc(d.confidence||"?")} · trend ${esc(d.trend||"?")}</small>
+    <small>Market check ${d.checkedAt?new Date(d.checkedAt).toLocaleDateString():""} · ${d.source==="SportsCardsPro"?`<b>SportsCardsPro price guide</b> · `:""}matched: ${d.url?`<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.match||d.searched||"")}</a>`:esc(d.match||d.searched||"")} · confidence ${esc(d.confidence||"?")}${d.source==="SportsCardsPro"?"":` · trend ${esc(d.trend||"?")}`}</small>
     <div style="font-weight:600">Grade projections — what it's worth at each grade</div>
     <div class="scores">${tiers.map(tile).join("")}</div>
     <div style="font-weight:600;margin-top:4px">This card's value — priced as ${esc(d.condition)}</div>
