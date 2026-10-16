@@ -118,6 +118,10 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
     <button class="chip" data-f="rc" aria-pressed="false">Rookies</button>
     <button class="chip" data-f="num" aria-pressed="false">Numbered</button>
     <button class="chip" data-f="spec" aria-pressed="false">Auto / Patch / Graded</button>
+    <button class="chip" data-f="Keep" aria-pressed="false">Keep</button>
+    <button class="chip" data-f="Sell" aria-pressed="false">Sell</button>
+    <button class="chip" data-f="Kid pile" aria-pressed="false">Kid pile</button>
+    <button class="chip" data-f="sold" aria-pressed="false">Sold</button>
   </div>
 
   <div class="tablebox">
@@ -169,6 +173,9 @@ label input,label select,label textarea{font:inherit;font-weight:400;color:var(-
       <label>Paid ($)<input name="paid" type="number" step="0.01" min="0"></label>
       <label>Current value ($)<input name="value" type="number" step="0.01" min="0"><button type="button" class="btn ghost" id="priceBtn" style="padding:6px 10px;font-size:.85rem">Get market price</button><button type="button" class="btn ghost" id="clearPriceBtn" style="padding:6px 10px;font-size:.85rem">Clear price</button><span class="help" id="priceMsg">Searches recent sold sales (about 30–60 sec)</span></label>
       <label>Date got it<input name="acquired" type="date"></label>
+      <label>Pile<select name="pile"><option value=""></option><option>Keep</option><option>Sell</option><option>Kid pile</option></select><span class="help">Keep = not for sale. Sell = worth $10+ and nobody's attached. Kid pile = under $5, the kids can trade, give away or sell it.</span></label>
+      <label>Sold for ($)<input name="soldFor" type="number" step="0.01" min="0"><span class="help">What the buyer paid you. Blank = not sold.</span></label>
+      <label>Date sold<input name="soldDate" type="date"></label>
     </div>
     <div id="marketBox"></div>
     <label>Notes<textarea name="notes" rows="2"></textarea></label>
@@ -252,6 +259,8 @@ function renderFor(cards){
     if(filter==="num"&&!c.numbered)return false;
     if(filter==="spec"&&!specTags(c).length)return false;
     if(["Football","Basketball","Baseball"].includes(filter)&&c.sport!==filter)return false;
+    if(["Keep","Sell","Kid pile"].includes(filter)&&c.pile!==filter)return false;
+    if(filter==="sold"&&num(c.soldFor)==null)return false;
     if(q&&!`${c.player} ${c.set} ${c.team} ${c.notes} ${c.year}`.toLowerCase().includes(q))return false;
     return true});
   list.sort((a,b)=>{let x=a[sortKey],y=b[sortKey];
@@ -265,7 +274,7 @@ function renderFor(cards){
     const p=num(c.paid),v=valOf(c),d=p!=null&&v!=null?v-p:null;
     return `<tr class="row" data-id="${c.id}">
     <td>${c.photo?`<img class="thumb" loading="lazy" src="/api/photo?id=${c.photo}" data-big="${c.id}" alt="">`:'<div class="nothumb"></div>'}</td>
-    <td class="player">${esc(c.player)||'<span class="muted">Not filled in yet</span>'}${c.team?`<div class="muted" style="font-weight:400;font-size:.85rem">${esc(c.team)}</div>`:""}</td>
+    <td class="player">${esc(c.player)||'<span class="muted">Not filled in yet</span>'}${c.team?`<div class="muted" style="font-weight:400;font-size:.85rem">${esc(c.team)}</div>`:""}${c.pile||num(c.soldFor)!=null?`<div>${c.pile?`<span class="tag spec">${esc(c.pile)}</span> `:""}${num(c.soldFor)!=null?`<span class="tag rc">Sold ${$$(num(c.soldFor))}</span>`:""}</div>`:""}</td>
     <td>${esc(c.sport)}</td><td>${esc(c.year)}</td>
     <td>${esc(c.set)}${c.cardNo?` <span class="muted">#${esc(c.cardNo)}</span>`:""}</td>
     <td>${isRc(c)?'<span class="tag rc">RC</span>':c.rookieYear==="Yes"?'<span class="tag foil" title="Rookie year, no RC logo">Rookie yr</span>':'<span class="muted">No</span>'}</td>
@@ -448,7 +457,7 @@ $("big").onclick=()=>$("big").style.display="none";
 document.querySelectorAll(".chip[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll(".chip[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b));render()});
 document.querySelectorAll("th button").forEach(b=>b.onclick=()=>{const k=b.dataset.s;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=1}render()});
 $("search").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};
-$("csvBtn").onclick=()=>{const cols=["owner","player","team","sport","year","set","cardNo","rookie","rookieYear","numbered","auto","patch","graded","gradeCo","gradeNum","guess","paid","value","acquired","notes"];
+$("csvBtn").onclick=()=>{const cols=["owner","player","team","sport","year","set","cardNo","rookie","rookieYear","numbered","auto","patch","graded","gradeCo","gradeNum","guess","paid","value","acquired","pile","soldFor","soldDate","notes"];
   const csv=[cols.join(","),...cards.map(c=>cols.map(k=>`"${String(c[k]??"").replace(/"/g,'""')}"`).join(","))].join("\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="card-collection.csv";a.click()};
 load();
