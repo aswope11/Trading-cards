@@ -6,10 +6,11 @@ export default async (req) => {
   const bodyTxt = await req.text().catch(() => "");
   const recalc = bodyTxt.includes("recalc");
   const onlyId = (bodyTxt.match(/^id=([a-z0-9-]+)$/i) || [])[1];
+  const owners = ((bodyTxt.match(/^owners=(.+)$/) || [])[1] || "").split(",").map((x) => x.trim()).filter(Boolean); // only these people's never-priced cards
   const cards = getStore({ name: "cards", consistency: "strong" }), mk = getStore({ name: "market", consistency: "strong" });
   const key = Netlify.env.get("ANTHROPIC_API_KEY");
   const prev = (await mk.get("reprice-status", { type: "json" })) || {};
-  const runStart = !onlyId && prev.startedAt && !prev.finishedAt ? prev.startedAt : new Date().toISOString(); // unfinished run = pick up where it stopped
+  const runStart = !onlyId && !owners.length && prev.startedAt && !prev.finishedAt ? prev.startedAt : new Date().toISOString(); // unfinished run = pick up where it stopped
   let { blobs } = await cards.list({ prefix: "card/" });
   if (onlyId) blobs = blobs.filter((b) => b.key === "card/" + onlyId);
   const st = { running: true, startedAt: runStart, total: blobs.length, done: 0, failed: [], log: [] };
@@ -22,7 +23,8 @@ export default async (req) => {
       const b = queue.shift();
       const c = await cards.get(b.key, { type: "json" });
       if (!c) continue;
-      if (!onlyId && c.repricedAt && c.repricedAt >= runStart) { st.done++; continue; }
+      if (owners.length && (!owners.includes(c.owner) || c.repricedAt || (c.market && !c.market.error))) { st.done++; continue; }
+      if (!onlyId && !owners.length && c.repricedAt && c.repricedAt >= runStart) { st.done++; continue; }
       let d;
       if (recalc && c.market && !c.market.error) { const v = priceCard(c, c.market); d = { ...c.market, condition: v.grade, value: v.value, how: v.how }; }
       else d = await searchCard(c, key);
